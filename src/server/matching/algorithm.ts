@@ -1,6 +1,14 @@
 import type { SurveyResponse } from "@/generated/prisma/client";
-import { surveySections, getQuestionById } from "@/lib/survey-questions";
-import type { SliderQuestion, SingleQuestion } from "@/lib/survey-questions";
+import {
+  surveySections,
+  matchingConfig,
+  getQuestionById,
+} from "@/lib/survey-questions";
+import type {
+  SliderQuestion,
+  SingleQuestion,
+  DimensionConfig,
+} from "@/lib/survey-questions";
 
 // ─── Parsed survey data ───
 
@@ -16,17 +24,10 @@ function parseSurvey(survey: SurveyResponse): ParsedSurvey {
   };
 }
 
-// ─── Hard filters ───
-
-const HARD_FILTER_CONFIGS: { questionId: string; incompatiblePairs: [string, string][] }[] = [
-  {
-    questionId: "bride_price_attitude",
-    incompatiblePairs: [["B", "D"], ["D", "B"]],
-  },
-];
+// ─── Hard filters (config-driven) ───
 
 function shouldHardFilter(a: ParsedSurvey, b: ParsedSurvey): boolean {
-  for (const config of HARD_FILTER_CONFIGS) {
+  for (const config of matchingConfig.hardFilters) {
     const aVal = a.answers[config.questionId];
     const bVal = b.answers[config.questionId];
     if (typeof aVal === "string" && typeof bVal === "string") {
@@ -38,7 +39,7 @@ function shouldHardFilter(a: ParsedSurvey, b: ParsedSurvey): boolean {
   return false;
 }
 
-// ─── Dimension scoring ───
+// ─── Scoring functions ───
 
 function sliderSimilarity(a: ParsedSurvey, b: ParsedSurvey, questionId: string): number {
   const q = getQuestionById(questionId) as SliderQuestion | undefined;
@@ -61,7 +62,6 @@ function tagsOverlap(a: ParsedSurvey, b: ParsedSurvey, questionId: string): numb
   const aVals = Array.isArray(a.answers[questionId]) ? (a.answers[questionId] as string[]) : [];
   const bVals = Array.isArray(b.answers[questionId]) ? (b.answers[questionId] as string[]) : [];
   if (aVals.length === 0 && bVals.length === 0) return 0.5;
-  const setA = new Set(aVals);
   const setB = new Set(bVals);
   const intersection = aVals.filter((v) => setB.has(v)).length;
   const union = new Set([...aVals, ...bVals]).size;
@@ -94,7 +94,14 @@ function rankingCorrelation(a: ParsedSurvey, b: ParsedSurvey, questionId: string
   return overlapRatio * 0.6 + orderScore * 0.4;
 }
 
-// ─── Dimension weights ───
+const SCORER_MAP = {
+  slider: sliderSimilarity,
+  single: singleMatchScore,
+  tags: tagsOverlap,
+  ranking: rankingCorrelation,
+} as const;
+
+// ─── Dimension scoring (config-driven) ───
 
 interface DimensionScore {
   name: string;
@@ -103,54 +110,14 @@ interface DimensionScore {
 }
 
 function computeDimensions(a: ParsedSurvey, b: ParsedSurvey): DimensionScore[] {
-  return [
-    {
-      name: "安全联结",
-      weight: 0.20,
-      score: (
-        sliderSimilarity(a, b, "reply_anxiety") * 0.3 +
-        singleMatchScore(a, b, "safety_source") * 0.35 +
-        rankingCorrelation(a, b, "betrayal_redlines") * 0.35
-      ),
-    },
-    {
-      name: "互动模式",
-      weight: 0.25,
-      score: (
-        singleMatchScore(a, b, "conflict_animal") * 0.25 +
-        singleMatchScore(a, b, "family_communication") * 0.30 +
-        sliderSimilarity(a, b, "intimacy_importance") * 0.25 +
-        singleMatchScore(a, b, "intimacy_low_response") * 0.20
-      ),
-    },
-    {
-      name: "意义系统",
-      weight: 0.25,
-      score: (
-        tagsOverlap(a, b, "realistic_factors") * 0.30 +
-        singleMatchScore(a, b, "bride_price_attitude") * 0.30 +
-        rankingCorrelation(a, b, "future_priorities") * 0.40
-      ),
-    },
-    {
-      name: "动力发展",
-      weight: 0.20,
-      score: (
-        singleMatchScore(a, b, "stress_partner_type") * 0.25 +
-        singleMatchScore(a, b, "growth_sync") * 0.30 +
-        singleMatchScore(a, b, "growth_rate_diff") * 0.20 +
-        sliderSimilarity(a, b, "relationship_adventure") * 0.25
-      ),
-    },
-    {
-      name: "日常系统",
-      weight: 0.10,
-      score: (
-        singleMatchScore(a, b, "life_rhythm") * 0.50 +
-        tagsOverlap(a, b, "digital_boundaries") * 0.50
-      ),
-    },
-  ];
+  return matchingConfig.dimensions.map((dim: DimensionConfig) => ({
+    name: dim.name,
+    weight: dim.weight,
+    score: dim.items.reduce((sum, item) => {
+      const scorer = SCORER_MAP[item.scorer];
+      return sum + scorer(a, b, item.questionId) * item.weight;
+    }, 0),
+  }));
 }
 
 function computeCompatibility(a: ParsedSurvey, b: ParsedSurvey): number {
@@ -204,7 +171,11 @@ function generateReasons(a: ParsedSurvey, b: ParsedSurvey): string[] {
     reasons.push(`你们都看重：${sharedFactors.slice(0, 2).join("、")}`);
   }
 
-  const sliderIds = ["reply_anxiety", "intimacy_importance", "relationship_adventure"];
+  const sliderIds = matchingConfig.dimensions
+    .flatMap((d) => d.items)
+    .filter((item) => item.scorer === "slider")
+    .map((item) => item.questionId);
+
   for (const id of sliderIds) {
     if (reasons.length >= 4) break;
     const sim = sliderSimilarity(a, b, id);
