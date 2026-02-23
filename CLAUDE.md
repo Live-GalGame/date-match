@@ -4,7 +4,40 @@
 
 ## 项目概述
 
-关系兼容性匹配平台。用户完成心理学问卷 → 系统计算五维度兼容度 → 每周匹配一对。
+关系兼容性匹配平台。用户无需注册即可填写心理学问卷 → 最后一步留下邮箱 → 系统计算五维度兼容度 → 每周匹配一对 → 邮件通知结果。
+
+**线上地址：** https://date-match.vercel.app
+
+## 部署架构
+
+| 服务 | 用途 | 配置位置 |
+|------|------|---------|
+| **Vercel** | 前端 + Serverless Functions | `vercel.json`（如有）/ Vercel Dashboard |
+| **Turso** | 托管 LibSQL 数据库（东京区域） | `src/server/db/index.ts` |
+| **Resend** | 邮件发送 | `src/lib/auth.ts` + `src/server/email/send-match.ts` |
+
+### 环境变量（Vercel Dashboard 管理）
+
+| 变量 | 说明 |
+|------|------|
+| `DATABASE_URL` | Turso LibSQL URL (`libsql://...turso.io`) |
+| `TURSO_AUTH_TOKEN` | Turso 数据库认证 JWT |
+| `BETTER_AUTH_SECRET` | Better Auth 签名密钥 |
+| `BETTER_AUTH_URL` | 生产环境 URL (`https://date-match.vercel.app`) |
+| `RESEND_API_KEY` | Resend 邮件服务 API Key |
+| `EMAIL_FROM` | 发件人地址（需在 Resend 验证域名） |
+
+### 部署命令
+
+```bash
+# 推送 Schema 到 Turso（数据库迁移）
+npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script | turso db shell date-match
+
+# 部署到 Vercel 生产环境
+vercel deploy --prod
+```
+
+注意：`prisma db push` 不支持 `libsql://` 协议，必须用 `migrate diff` 生成 SQL 再通过 `turso db shell` 执行。
 
 ## 关键架构决策
 
@@ -12,6 +45,16 @@
 2. **问卷定义与 UI 分离**：所有题目定义在 `src/lib/survey-questions.ts`，UI 组件在 `src/components/survey/` 下按题型拆分，页面 `src/app/onboarding/survey/page.tsx` 根据 `question.type` 动态渲染。
 3. **匹配算法是纯函数**：`src/server/matching/algorithm.ts` 不依赖数据库，接收 `SurveyResponse[]` 返回 `MatchResult[]`，方便单元测试。
 4. **tRPC 统一 API**：所有前后端通信走 tRPC，路由定义在 `src/server/api/routers/`。无裸 fetch 调用。
+5. **问卷无需登录**：用户直接填写问卷，最后一步通过 `submitPublic`（公开 procedure）提交邮箱 + 答案，自动创建用户并 opt-in 匹配。
+6. **LibSQL adapter + Turso**：Prisma 使用 `@prisma/adapter-libsql`，本地开发用 `file:./dev.db`，生产连接 Turso 云端数据库。
+
+## 用户流程
+
+```
+首页「开始测试」→ /onboarding/survey → 8 部分问卷（客户端 state）→ 邮箱收集步骤 → submitPublic API → 感谢页
+```
+
+问卷答案全部存在 React state 中，仅在最后一步提交时才调用后端。
 
 ## 文件地图
 
@@ -21,16 +64,24 @@
 |------|------|--------|
 | `src/lib/survey-questions.ts` | 题型定义 + 所有题目内容 | 增删改题目、新增题型 |
 | `src/components/survey/*.tsx` | 各题型的 UI 组件 | 修改渲染逻辑、样式 |
-| `src/app/onboarding/survey/page.tsx` | 问卷页面（渲染 + 导航） | 新题型需要加 `if (q.type === "xxx")` 分支 |
+| `src/app/onboarding/survey/page.tsx` | 问卷页面（渲染 + 导航 + 邮箱收集） | 新题型需要加 `if (q.type === "xxx")` 分支 |
 | `src/server/matching/algorithm.ts` | 匹配计算 | 新题目需要加入维度评分 |
 
 ### 修改认证时需要改的文件
 
 | 文件 | 作用 |
 |------|------|
-| `src/lib/auth.ts` | Better Auth 服务端配置 |
+| `src/lib/auth.ts` | Better Auth 服务端配置（含 Magic Link 邮件模板） |
 | `src/lib/auth-client.ts` | 客户端认证 hooks |
 | `src/app/api/auth/[...all]/route.ts` | Auth 路由 handler |
+
+### 修改部署时需要改的文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/server/db/index.ts` | 数据库连接（LibSQL URL + authToken） |
+| `prisma/schema.prisma` | 数据模型定义 |
+| `.env` | 本地环境变量（不提交到 git） |
 
 ### 数据模型
 
@@ -42,7 +93,7 @@
 | `Match` | 匹配结果 | user1Id, user2Id, compatibility, reasons (JSON), week |
 | `Qualification` | 身份验证 | eduEmail, status |
 
-Prisma schema 位于 `prisma/schema.prisma`，使用 SQLite。
+Prisma schema 位于 `prisma/schema.prisma`，使用 SQLite（本地）/ Turso（生产）。
 
 ## 题型系统
 
@@ -109,10 +160,24 @@ Prisma schema 位于 `prisma/schema.prisma`，使用 SQLite。
 ### 加硬过滤规则
 `algorithm.ts` → `HARD_FILTER_CONFIGS` 数组，加 `{ questionId, incompatiblePairs }` 条目。
 
+### 数据库迁移（改了 schema 后）
+```bash
+# 本地
+npx prisma db push
+
+# 生产（Turso）
+npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script | turso db shell date-match
+```
+
+### 部署
+```bash
+git push origin main && vercel deploy --prod
+```
+
 ## 编码约定
 
 - 全中文面向用户的文案（UI、匹配原因、提示文字）
 - 代码内标识符用英文（变量名、question ID、API 字段）
 - Tailwind CSS 样式，使用 shadcn 主题变量（`bg-primary`, `text-muted-foreground` 等）
 - 无注释叙述代码——注释仅用于非显而易见的决策或 trade-off
-- tRPC 路由用 `protectedProcedure`，需登录才能访问
+- 问卷提交用 `publicProcedure`（无需登录），Dashboard 等管理功能用 `protectedProcedure`
