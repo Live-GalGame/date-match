@@ -1,0 +1,68 @@
+"use client";
+
+import { cn } from "@/lib/utils";
+
+interface EmojiCardOption {
+  value: string;
+  label: string;
+  emoji?: string;
+  image?: string;
+}
+
+interface EmojiCardSelectProps {
+  question: string;
+  note?: string;
+  options: EmojiCardOption[];
+  value: string | null;
+  onChange: (value: string) => void;
+}
+
+export function EmojiCardSelect({
+  question,
+  note,
+  options,
+  value,
+  onChange,
+}: EmojiCardSelectProps) {
+  return (
+    <div className="py-4">
+      <h2 className="font-serif text-2xl sm:text-3xl text-center mb-2 leading-tight">
+        {question}
+      </h2>
+      {note && (
+        <p className="text-xs text-muted-foreground text-center mb-6 italic">
+          {note}
+        </p>
+      )}
+      <div className="grid grid-cols-2 gap-3 mt-6">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all duration-200",
+              "hover:scale-[1.03] hover:shadow-md active:scale-[0.98]",
+              value === option.value
+                ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
+                : "border-border bg-card hover:border-primary/30"
+            )}
+          >
+            {option.image ? (
+              <img
+                src={option.image}
+                alt=""
+                className="w-16 h-16 object-contain"
+              />
+            ) : option.emoji ? (
+              <span className="text-4xl leading-none">{option.emoji}</span>
+            ) : null}
+            <span className="text-sm text-center font-medium leading-snug">
+              {option.label}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -72,7 +72,10 @@ model Profile {
   gender      String
   age         Int
   school      String
-  major       String?
+  education        String   @default("")
+  schoolTier       String   @default("")
+  datingPreference String   @default("")
+  major            String?
   classYear   String?
   bio         String?
   createdAt   DateTime @default(now())

@@ -1,15 +1,14 @@
-// ╔══════════════════════════════════════════════════════════════╗
-// ║  切换问卷版本只需修改下面这一行 import                        ║
-// ╚══════════════════════════════════════════════════════════════╝
-import activeVersion from "./survey-versions/v2";
-// import activeVersion from "./survey-versions/v1";
+import v2Deep from "./survey-versions/v2";
+import v3Lite from "./survey-versions/v3-lite";
+import type { SurveyVersion, SurveyQuestion, QuestionType } from "./survey-versions/types";
 
-// ─── Re-export types (backward compatible) ───
+// ─── Re-export types ───
 
 export type {
   QuestionType,
   SliderQuestion,
   SingleQuestion,
+  SingleQuestionOption,
   RankingQuestion,
   TagsQuestion,
   OpenTextQuestion,
@@ -21,16 +20,29 @@ export type {
   SurveyVersion,
 } from "./survey-versions/types";
 
-// ─── Active survey data ───
+// ─── Multi-version registry ───
 
-export const surveyVersionId = activeVersion.id;
-export const surveyVersionName = activeVersion.name;
-export const surveySections = activeVersion.sections;
-export const matchingConfig = activeVersion.matching;
+const versions: Record<string, SurveyVersion> = {
+  "v2": v2Deep,
+  "v3-lite": v3Lite,
+};
 
-// ─── Helper: get all question IDs by type ───
+export function getSurveyVersion(id: string): SurveyVersion | undefined {
+  return versions[id];
+}
 
-export function getQuestionsByType(type: import("./survey-versions/types").QuestionType): string[] {
+export { v3Lite, v2Deep };
+
+// ─── Default active version (backward compat for matching algorithm) ───
+
+export const surveyVersionId = v2Deep.id;
+export const surveyVersionName = v2Deep.name;
+export const surveySections = v2Deep.sections;
+export const matchingConfig = v2Deep.matching;
+
+// ─── Helpers ───
+
+export function getQuestionsByType(type: QuestionType): string[] {
   const ids: string[] = [];
   for (const section of surveySections) {
     for (const q of section.questions) {
@@ -40,10 +52,12 @@ export function getQuestionsByType(type: import("./survey-versions/types").Quest
   return ids;
 }
 
-export function getQuestionById(id: string): import("./survey-versions/types").SurveyQuestion | undefined {
-  for (const section of surveySections) {
-    for (const q of section.questions) {
-      if (q.id === id) return q;
+export function getQuestionById(id: string): SurveyQuestion | undefined {
+  for (const v of Object.values(versions)) {
+    for (const section of v.sections) {
+      for (const q of section.questions) {
+        if (q.id === id) return q;
+      }
     }
   }
   return undefined;

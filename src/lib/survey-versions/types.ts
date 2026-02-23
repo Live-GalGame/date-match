@@ -15,12 +15,19 @@ export interface SliderQuestion {
   unit?: string;
 }
 
+export interface SingleQuestionOption {
+  value: string;
+  label: string;
+  emoji?: string;
+  image?: string;
+}
+
 export interface SingleQuestion {
   id: string;
   type: "single";
   question: string;
   note?: string;
-  options: { value: string; label: string }[];
+  options: SingleQuestionOption[];
 }
 
 export interface RankingQuestion {
