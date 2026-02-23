@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  name          String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  profile          Profile?
+  qualification    Qualification?
+  surveyResponse   SurveyResponse?
+  sentMatches      Match[]  @relation("MatchUser1")
+  receivedMatches  Match[]  @relation("MatchUser2")
+  sessions         Session[]
+  accounts         Account[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  accountId         String
+  providerId        String
+  accessToken       String?
+  refreshToken      String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope             String?
+  idToken           String?
+  password          String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Profile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String
+  gender      String
+  age         Int
+  school      String
+  major       String?
+  classYear   String?
+  bio         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Qualification {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  eduEmail        String?
+  eduVerified     Boolean  @default(false)
+  diplomaUrl      String?
+  diplomaVerified Boolean  @default(false)
+  otherProof      String?
+  status          String   @default("pending") // pending | verified | rejected
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model SurveyResponse {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  // JSON blob storing all answers: { questionId: value }
+  answers String @default("{}")
+
+  // Core values stored as comma-separated list
+  coreValues String @default("")
+
+  completed Boolean  @default(false)
+  optedIn   Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Match {
+  id              String   @id @default(cuid())
+  user1Id         String
+  user2Id         String
+  compatibility   Float
+  reasons         String   @default("[]") // JSON array of match reasons
+  week            String   // e.g. "2026-W08"
+  emailSentAt     DateTime?
+  createdAt       DateTime @default(now())
+
+  user1 User @relation("MatchUser1", fields: [user1Id], references: [id])
+  user2 User @relation("MatchUser2", fields: [user2Id], references: [id])
+
+  @@unique([user1Id, user2Id, week])
+}
