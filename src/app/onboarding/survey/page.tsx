@@ -80,7 +80,8 @@ export default function SurveyPage() {
   const [genderDone, setGenderDone] = useState(false);
 
   // Helicopter quiz states
-  const [heliPhase, setHeliPhase] = useState<null | "quiz" | "result">(null);
+  const [heliPhase, setHeliPhase] = useState<null | "quiz" | "loading" | "result">(null);
+  const [heliLoadingText, setHeliLoadingText] = useState("");
   const [heliStep, setHeliStep] = useState(0);
   const [heliAnswers, setHeliAnswers] = useState<Record<string, string>>({});
   const [showHeliSplash, setShowHeliSplash] = useState(false);
@@ -238,10 +239,13 @@ export default function SurveyPage() {
                     if (heliStep < 2) {
                       setHeliStep((s) => s + 1);
                     } else {
-                      setHeliPhase("result");
-                      setShowHeliSplash(true);
-                      if (heliSplashTimer.current) clearTimeout(heliSplashTimer.current);
-                      heliSplashTimer.current = setTimeout(() => setShowHeliSplash(false), 3000);
+                      setHeliPhase("loading");
+                      setTimeout(() => {
+                        setHeliPhase("result");
+                        setShowHeliSplash(true);
+                        if (heliSplashTimer.current) clearTimeout(heliSplashTimer.current);
+                        heliSplashTimer.current = setTimeout(() => setShowHeliSplash(false), 3000);
+                      }, 3000);
                     }
                     window.scrollTo({ top: 0, behavior: "smooth" });
                   }, 300);
@@ -270,6 +274,26 @@ export default function SurveyPage() {
               </button>
             </div>
           )}
+        </div>
+      );
+    }
+
+    // Sub-phase: Helicopter Loading Screen
+    if (heliPhase === "loading") {
+      return (
+        <div className="animate-fade-in flex flex-col items-center justify-center py-24">
+          <div className="text-6xl mb-8 animate-heart-pulse">💗</div>
+          <h2 className="text-xl sm:text-2xl font-serif font-bold mb-6 text-center">
+            匹配中...
+          </h2>
+          <div className="w-full max-w-xs h-3 bg-muted rounded-full overflow-hidden mb-4">
+            <div
+              className="h-full bg-primary rounded-full transition-none"
+              style={{
+                animation: "heli-progress 3s linear forwards",
+              }}
+            />
+          </div>
         </div>
       );
     }
@@ -533,20 +557,20 @@ export default function SurveyPage() {
                 例题预览
               </p>
               <p className="text-sm font-medium text-center mb-3">
-                吵架了，你大概率是？
+                收到喜欢的人消息，你的第一反应？
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { emoji: "🌋", text: "当场说清楚" },
-                  { emoji: "🧊", text: "先冷静一下" },
-                  { emoji: "🏳️", text: "先道歉" },
-                  { emoji: "📝", text: "发一大段话" },
+                  { emoji: "A", text: "强忍3分钟才回（不能显得太上头）" },
+                  { emoji: "B", text: "秒回！手速超越打游戏" },
+                  { emoji: "C", text: "先截图发群里，召唤智囊团分析" },
+                  { emoji: "D", text: "精心编辑一条完美回复" },
                 ].map((item) => (
                   <div
                     key={item.emoji}
                     className="bg-card rounded-lg p-2.5 text-center"
                   >
-                    <span className="text-xl block mb-0.5">{item.emoji}</span>
+                    <span className="text-base font-semibold block mb-0.5">{item.emoji}</span>
                     <span className="text-xs text-muted-foreground">
                       {item.text}
                     </span>
@@ -582,13 +606,14 @@ export default function SurveyPage() {
                 例题预览
               </p>
               <p className="text-sm font-medium text-center mb-3">
-                发生争执时，你最像哪种动物？
+                在走向长期关系时，你如何看待原生家庭的资源与责任？
               </p>
               <div className="flex flex-col gap-1.5">
                 {[
-                  "🦔 刺猬——先防御，言语带刺",
-                  "🐦 鸵鸟——暂时回避，需要冷静",
-                  "🐬 海豚——主动用理性化解",
+                  "A. 独立自主型：习惯靠自己打拼，尽量不依赖双方父母，也不希望长辈过度干预。",
+                  "B. 资源整合型：认可家庭作为后盾的支持（如购房首付），愿意接受长辈合理的建议。",
+                  "C. 责任反哺型：家庭需要我未来承担较多照顾责任，希望伴侣能理解并共同分担。",
+                  "D. 情感疏离型：与原生家庭联系较少，未来希望建立完全独立于原生家庭的小家庭。",
                 ].map((text) => (
                   <div
                     key={text}
@@ -597,9 +622,6 @@ export default function SurveyPage() {
                     {text}
                   </div>
                 ))}
-                <div className="bg-card rounded-lg px-3 py-2 text-xs text-muted-foreground">
-                  …还有更多选项
-                </div>
               </div>
             </div>
 

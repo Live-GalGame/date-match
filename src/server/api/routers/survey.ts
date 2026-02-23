@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { randomUUID } from "crypto";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
+import { sendConfirmationEmail } from "@/server/email/send-confirmation";
 
 const FAKE_HELICOPTER_NAMES = [
   "AH-64恋爱中", "黑鹰小甜心", "直-20暖男", "旋翼少女心",
@@ -128,6 +130,29 @@ export const surveyRouter = createTRPCRouter({
           completed: true,
           optedIn: true,
         },
+      });
+
+      const token = randomUUID();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await ctx.db.verification.create({
+        data: {
+          identifier: input.email,
+          value: token,
+          expiresAt,
+        },
+      });
+
+      const baseUrl =
+        process.env.BETTER_AUTH_URL || "http://localhost:3000";
+      const verifyUrl = `${baseUrl}/api/verify-email?token=${token}`;
+
+      sendConfirmationEmail({
+        toEmail: input.email,
+        displayName: input.displayName,
+        verifyUrl,
+      }).catch((err) => {
+        console.error("[sendConfirmationEmail] failed:", err);
       });
 
       return { success: true, userId: user.id };

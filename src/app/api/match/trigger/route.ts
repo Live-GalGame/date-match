@@ -20,7 +20,11 @@ export async function POST(req: Request) {
 
   const week = getCurrentWeek();
   const surveys = await db.surveyResponse.findMany({
-    where: { completed: true, optedIn: true },
+    where: {
+      completed: true,
+      optedIn: true,
+      user: { emailVerified: true },
+    },
   });
 
   const results = runMatchingRound(surveys);

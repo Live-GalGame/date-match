@@ -21,6 +21,7 @@ export async function sendMatchEmail(data: MatchEmailData) {
 
   await resend.emails.send({
     from: process.env.EMAIL_FROM || "Date Match <noreply@datematch.com>",
+    replyTo: process.env.REPLY_TO_EMAIL || undefined,
     to: data.toEmail,
     subject: `Your Date Match for ${data.week}`,
     html: `

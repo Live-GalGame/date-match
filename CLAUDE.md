@@ -6,7 +6,7 @@
 
 关系兼容性匹配平台。用户无需注册即可填写心理学问卷 → 最后一步留下邮箱 → 系统计算五维度兼容度 → 每周匹配一对 → 邮件通知结果。
 
-**线上地址：** https://date-match.vercel.app
+**线上地址：** https://www.date-match.online（自定义域名）/ https://date-match.vercel.app（Vercel 默认）
 
 ## 部署架构
 
@@ -99,7 +99,7 @@ vercel deploy --prod
 | Model | 说明 | 关键字段 |
 |-------|------|---------|
 | `User` | 用户 | email, name |
-| `Profile` | 个人资料 | displayName, gender, age, school |
+| `Profile` | 个人资料 | displayName, gender, datingPreference, age, school, education, schoolTier |
 | `SurveyResponse` | 问卷回答 | answers (JSON), completed, optedIn |
 | `Match` | 匹配结果 | user1Id, user2Id, compatibility, reasons (JSON), week |
 | `Qualification` | 身份验证 | eduEmail, status |
@@ -185,18 +185,84 @@ import activeVersion from "./survey-versions/v2";
 当前版本文件的 `matching.hardFilters` 数组，加 `{ questionId, incompatiblePairs }` 条目。
 
 ### 数据库迁移（改了 schema 后）
+
+**⚠️ 关键：改完 `prisma/schema.prisma` 后必须同时迁移本地和生产数据库，否则线上会报错。**
+
+Prisma schema 只是声明式定义，不会自动同步到数据库。本地和生产需要分别执行迁移：
+
 ```bash
-# 本地
+# 1. 本地 SQLite — 自动对比并同步
 npx prisma db push
 
-# 生产（Turso）
+# 2. 重新生成 Prisma Client（schema 变更后必须执行）
+npx prisma generate
+
+# 3. 生产 Turso — prisma db push 不支持 libsql:// 协议，必须手动
+#    方式 A：全量重建（仅适用于空数据库或可丢数据的场景）
 npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script | turso db shell date-match
+#    方式 B：增量 ALTER（生产环境已有数据时用这种）
+turso db shell date-match "ALTER TABLE \"Profile\" ADD COLUMN \"newField\" TEXT NOT NULL DEFAULT '';"
+
+# 4. 验证生产表结构
+turso db shell date-match "PRAGMA table_info(Profile);"
 ```
 
 ### 部署
+
 ```bash
-git push origin main && vercel deploy --prod
+# 完整部署流程
+npx prisma generate && vercel deploy --prod
 ```
+
+### Vercel 环境变量注意事项
+
+在 Vercel Dashboard 或 CLI 设置环境变量时，**务必确保值末尾没有换行符 `\n`**。通过 CLI 设置更安全：
+
+```bash
+# 查看当前环境变量
+vercel env ls
+
+# 安全设置（用 printf 避免末尾换行）
+printf 'libsql://date-match-hhh2210.aws-ap-northeast-1.turso.io' | vercel env add DATABASE_URL production
+turso db tokens create date-match | tr -d '\n' | vercel env add TURSO_AUTH_TOKEN production --force
+
+# 修改后必须重新部署才能生效
+vercel deploy --prod
+```
+
+## 已知踩坑记录
+
+### 1. submitPublic 返回 500："Unknown argument `datingPreference`"（2026-02）
+
+**现象**：问卷提交报「提交失败，请重试」，本地和线上都失败。
+
+**根因链**：
+- `prisma/schema.prisma` 新增了 `education`、`schoolTier`、`datingPreference` 字段
+- 本地 `prisma db push` 同步了 SQLite，但 **Turso 生产数据库从未执行对应的 ALTER TABLE**
+- 同时 Next.js Turbopack 缓存了旧的 Prisma Client 编译产物
+
+**修复步骤**：
+1. `npx prisma generate` — 重新生成 Client
+2. `rm -rf .next` + 重启 `pnpm dev` — 清除 Turbopack 缓存
+3. `turso db shell date-match "ALTER TABLE ..."` — 给生产数据库补齐缺失字段
+
+**教训**：改完 schema 后，本地 `prisma db push` 和生产 `turso db shell ALTER TABLE` 必须同步执行，缺一不可。
+
+### 2. submitPublic 返回 500："Invalid URL"（2026-02）
+
+**现象**：Vercel 线上部署报 `Invalid prisma.user.upsert() invocation: Invalid URL`。
+
+**根因**：Vercel 环境变量 `DATABASE_URL` 和 `TURSO_AUTH_TOKEN` 的值末尾包含了 `\n` 换行符（在 Dashboard 粘贴时带入），导致 `libsql://...turso.io\n` 不是合法 URL。
+
+**修复**：通过 Vercel CLI 重新设置干净的值（见上方「Vercel 环境变量注意事项」），然后 `vercel deploy --prod`。
+
+### 3. 本地 Prisma Client 与运行时不一致
+
+**现象**：`prisma generate` 后 TypeScript 类型正确，但运行时仍报字段不存在。
+
+**根因**：Turbopack 开发服务器缓存了旧的编译 chunk，没有拉取新生成的 Prisma Client。
+
+**修复**：`rm -rf .next` 然后重启 `pnpm dev`。**改完 schema 后建议养成习惯：`prisma generate && rm -rf .next`。**
 
 ## 编码约定
 
