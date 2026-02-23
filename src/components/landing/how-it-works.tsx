@@ -1,81 +1,60 @@
 const steps = [
   {
     number: "01",
-    title: "Tell us about yourself",
+    title: "完成深度问卷",
     description:
-      "Your core values, interests, and what matters to you in a relationship. Our questionnaire is research-backed and takes about 10 minutes.",
+      "基于心理学的关系兼容性测试，涵盖安全联结、互动模式、意义系统等五大维度，大约 10 分钟。",
     gradient: "from-[#5a2d3e] to-[#8b4a6b]",
     preview: (
       <div className="bg-white/90 backdrop-blur rounded-2xl p-5 shadow-lg max-w-[260px]">
         <p className="text-sm font-medium text-foreground mb-3">
-          Having children is essential for a fulfilling life
+          你最认同哪种「爱的安全感」来源？
         </p>
-        <div className="flex gap-1.5 mb-2">
-          {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-            <button
-              key={n}
-              className={`w-8 h-8 rounded-full text-xs font-medium transition-all ${
-                n === 5
-                  ? "bg-primary text-white scale-110"
-                  : "bg-muted text-muted-foreground hover:bg-border"
-              }`}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-between text-[10px] text-muted-foreground">
-          <span>Hard pass</span>
-          <span>It&apos;s my dream</span>
-        </div>
-        <div className="mt-4">
-          <p className="text-xs font-medium text-foreground mb-2">My top 4 core values:</p>
-          <div className="flex flex-wrap gap-1.5">
-            {["Adventure", "Curiosity", "Kindness", "Honesty", "Freedom", "Loyalty"].map(
-              (v, i) => (
-                <span
-                  key={v}
-                  className={`px-3 py-1 rounded-full text-[11px] font-medium transition-all ${
-                    i < 2
-                      ? "bg-primary text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {v}
-                </span>
-              )
-            )}
-          </div>
+        <div className="space-y-1.5">
+          {["事事有回应", "我的后盾与港湾", "自由的牵挂", "共同进步的战友"].map(
+            (v, i) => (
+              <div
+                key={v}
+                className={`px-3 py-2 rounded-xl text-[11px] font-medium transition-all ${
+                  i === 2
+                    ? "bg-primary/10 text-foreground ring-1 ring-primary/40"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                {v}
+              </div>
+            )
+          )}
         </div>
       </div>
     ),
   },
   {
     number: "02",
-    title: "Get matched weekly",
+    title: "每周收到你的匹配",
     description:
-      "Opt in before the weekly deadline, and we'll send you a match with a note on why we think you'll click.",
+      "加入匹配后，我们会在每周轮次中为你找到最契合的人，并告诉你们为什么合拍。",
     gradient: "from-[#2d3a5a] to-[#4a6b8b]",
     preview: (
       <div className="bg-white/90 backdrop-blur rounded-2xl p-5 shadow-lg max-w-[260px]">
-        <h4 className="font-serif text-base mb-3 text-foreground">Your match: Alex</h4>
+        <h4 className="font-serif text-base mb-3 text-foreground">你的匹配：小明</h4>
         <div className="space-y-1.5 text-sm text-muted-foreground mb-3">
-          <p>📧 alex@university.edu</p>
-          <p>🎯 94.7% compatibility</p>
+          <p>📧 xiaoming@example.com</p>
+          <p>🎯 94.7% 契合度</p>
         </div>
-        <p className="text-xs font-medium text-foreground mb-2">Here&apos;s why:</p>
+        <p className="text-xs font-medium text-foreground mb-2">匹配原因：</p>
         <ul className="space-y-1.5 text-xs text-muted-foreground">
           <li className="flex gap-1.5">
             <span className="text-primary mt-0.5">•</span>
-            You both value independence but prioritize keeping in touch
+            你们在「安全联结」维度上高度契合
           </li>
           <li className="flex gap-1.5">
             <span className="text-primary mt-0.5">•</span>
-            &quot;Curiosity&quot; and &quot;Adventure&quot; in both your top values
+            你们都看重：情绪价值、个人成长
           </li>
           <li className="flex gap-1.5">
             <span className="text-primary mt-0.5">•</span>
-            Similar views on work-life balance
+            面对冲突时，你们都是海豚型
           </li>
         </ul>
       </div>
@@ -83,9 +62,9 @@ const steps = [
   },
   {
     number: "03",
-    title: "Go on a date!",
+    title: "开启一场真诚的对话",
     description:
-      "We give you their email. You figure out the rest — meet up, grab coffee, and maybe find something real.",
+      "我们把对方的联系方式发给你。接下来的故事，由你们自己书写——约一杯咖啡，聊聊彼此的人生剧本，看看会发生什么。",
     gradient: "from-[#3d2d5a] to-[#6b4a8b]",
     preview: null,
   },
@@ -94,7 +73,7 @@ const steps = [
 export function HowItWorks() {
   return (
     <section className="py-20 px-6 bg-background">
-      <h2 className="text-4xl font-serif text-center mb-16">How it works</h2>
+      <h2 className="text-4xl font-serif text-center mb-16">如何运作</h2>
       <div className="max-w-5xl mx-auto space-y-8">
         {steps.map((step) => (
           <div
@@ -103,11 +82,11 @@ export function HowItWorks() {
           >
             <div className="absolute inset-0 bg-[url('/stars.svg')] opacity-20 bg-repeat" />
             <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center gap-8">
-              <div className="flex-1">
+              <div className={step.preview ? "flex-1" : "flex-1 max-w-2xl"}>
                 <h3 className="text-2xl md:text-3xl font-serif text-white mb-3">
                   {step.title}
                 </h3>
-                <p className="text-white/70 text-base md:text-lg max-w-md">
+                <p className={`text-white/70 text-base md:text-lg ${step.preview ? "max-w-md" : ""}`}>
                   {step.description}
                 </p>
               </div>
