@@ -42,11 +42,12 @@ vercel deploy --prod
 ## 关键架构决策
 
 1. **全 JSON 存储问卷答案**：`SurveyResponse.answers` 是 JSON 字符串 `{ questionId: value }`，所有题型的答案都存在这个字段里。`coreValues` 字段保留但目前为空，历史遗留。
-2. **问卷定义与 UI 分离**：所有题目定义在 `src/lib/survey-questions.ts`，UI 组件在 `src/components/survey/` 下按题型拆分，页面 `src/app/onboarding/survey/page.tsx` 根据 `question.type` 动态渲染。
-3. **匹配算法是纯函数**：`src/server/matching/algorithm.ts` 不依赖数据库，接收 `SurveyResponse[]` 返回 `MatchResult[]`，方便单元测试。
-4. **tRPC 统一 API**：所有前后端通信走 tRPC，路由定义在 `src/server/api/routers/`。无裸 fetch 调用。
-5. **问卷无需登录**：用户直接填写问卷，最后一步通过 `submitPublic`（公开 procedure）提交邮箱 + 答案，自动创建用户并 opt-in 匹配。
-6. **LibSQL adapter + Turso**：Prisma 使用 `@prisma/adapter-libsql`，本地开发用 `file:./dev.db`，生产连接 Turso 云端数据库。
+2. **多版本问卷系统**：问卷定义在 `src/lib/survey-versions/` 下按版本拆分（v1.ts、v2.ts…），`src/lib/survey-questions.ts` 是薄切换层——**修改一行 import 即可切换版本**。每个版本文件同时包含题目定义和匹配维度配置。
+3. **问卷定义与 UI 分离**：UI 组件在 `src/components/survey/` 下按题型拆分，页面 `src/app/onboarding/survey/page.tsx` 根据 `question.type` 动态渲染。
+4. **匹配算法是配置驱动的纯函数**：`src/server/matching/algorithm.ts` 不依赖数据库，从当前活跃版本读取维度权重和硬过滤规则，自动适配。
+5. **tRPC 统一 API**：所有前后端通信走 tRPC，路由定义在 `src/server/api/routers/`。无裸 fetch 调用。
+6. **问卷无需登录**：用户直接填写问卷，最后一步通过 `submitPublic`（公开 procedure）提交邮箱 + 答案，自动创建用户并 opt-in 匹配。
+7. **LibSQL adapter + Turso**：Prisma 使用 `@prisma/adapter-libsql`，本地开发用 `file:./dev.db`，生产连接 Turso 云端数据库。
 
 ## 用户流程
 
@@ -58,14 +59,24 @@ vercel deploy --prod
 
 ## 文件地图
 
+### 问卷版本系统
+
+| 文件 | 作用 |
+|------|------|
+| `src/lib/survey-versions/types.ts` | 共享类型定义（QuestionType、SurveySection、MatchingConfig 等） |
+| `src/lib/survey-versions/v1.ts` | 基础版问卷 + 匹配配置 |
+| `src/lib/survey-versions/v2.ts` | 深度版问卷 + 匹配配置（当前激活） |
+| `src/lib/survey-questions.ts` | **切换层**——改一行 import 切换版本，同时导出 helper 函数 |
+
 ### 修改问卷时需要改的文件
 
 | 文件 | 作用 | 改什么 |
 |------|------|--------|
-| `src/lib/survey-questions.ts` | 题型定义 + 所有题目内容 | 增删改题目、新增题型 |
+| `src/lib/survey-versions/v*.ts` | 各版本的题目 + 匹配维度权重 | 增删改题目、调权重 |
+| `src/lib/survey-questions.ts` | 版本切换入口 | 切换 import 行 |
 | `src/components/survey/*.tsx` | 各题型的 UI 组件 | 修改渲染逻辑、样式 |
 | `src/app/onboarding/survey/page.tsx` | 问卷页面（渲染 + 导航 + 邮箱收集） | 新题型需要加 `if (q.type === "xxx")` 分支 |
-| `src/server/matching/algorithm.ts` | 匹配计算 | 新题目需要加入维度评分 |
+| `src/server/matching/algorithm.ts` | 匹配计算（配置驱动） | 新评分器类型需加 SCORER_MAP |
 
 ### 修改认证时需要改的文件
 
@@ -108,23 +119,36 @@ Prisma schema 位于 `prisma/schema.prisma`，使用 SQLite（本地）/ Turso�
 | `open_text` | `OpenTextQuestion` | `string` | `text-input.tsx` |
 
 **新增题型的步骤：**
-1. 在 `survey-questions.ts` 加 interface，加入 `SurveyQuestion` union type
+1. 在 `survey-versions/types.ts` 加 interface，加入 `SurveyQuestion` union type
 2. 在 `src/components/survey/` 创建新组件
 3. 在 `survey/page.tsx` 加渲染分支
-4. 在 `algorithm.ts` 加评分函数和维度配置
+4. 在 `algorithm.ts` 的 `SCORER_MAP` 加评分函数
+
+**切换问卷版本：**
+```typescript
+// src/lib/survey-questions.ts — 只改这一行
+import activeVersion from "./survey-versions/v2";
+// import activeVersion from "./survey-versions/v1";
+```
+
+**新增问卷版本：**
+1. 复制现有版本文件（如 v2.ts → v3.ts）
+2. 修改 sections 和 matching 配置
+3. 在 survey-questions.ts 切换 import
 
 ## 匹配算法
 
-`src/server/matching/algorithm.ts`
+`src/server/matching/algorithm.ts`（配置驱动，自动读取当前版本的维度配置）
 
-### 五维度权重
+### v2 六维度权重（当前激活）
 
 | 维度 | 权重 | 涉及的题目 ID |
 |------|------|--------------|
-| 安全联结 | 20% | reply_anxiety, safety_source, betrayal_redlines |
-| 互动模式 | 25% | conflict_animal, family_communication, intimacy_importance, intimacy_low_response |
-| 意义系统 | 25% | realistic_factors, bride_price_attitude, future_priorities |
-| 动力发展 | 20% | stress_partner_type, growth_sync, growth_rate_diff, relationship_adventure |
+| 安全联结 | 18% | reply_anxiety, safety_source, betrayal_redlines |
+| 互动模式 | 20% | conflict_animal, family_communication, intimacy_warmth, intimacy_passion, intimacy_low_response |
+| 现实坐标 | 15% | city_trajectory, economic_role, family_resources, bride_price_attitude |
+| 意义系统 | 20% | realistic_factors, future_priorities |
+| 动力发展 | 17% | stress_partner_type, growth_sync, stage_difference, relationship_adventure |
 | 日常系统 | 10% | life_rhythm, digital_boundaries |
 
 ### 各题型的相似度计算
@@ -150,15 +174,15 @@ Prisma schema 位于 `prisma/schema.prisma`，使用 SQLite（本地）/ Turso�
 ## 常见操作速查
 
 ### 加一道新题
-1. `survey-questions.ts` → 在对应 section 的 `questions` 数组里加
+1. 当前版本文件（如 `survey-versions/v2.ts`）→ 在对应 section 的 `questions` 数组里加
 2. 如果是已有题型，无需改组件
-3. `algorithm.ts` → 在 `computeDimensions()` 对应维度里加评分项
+3. 同一版本文件的 `matching.dimensions` → 对应维度里加评分项
 
 ### 调整匹配权重
-`algorithm.ts` → `computeDimensions()` 函数，修改各维度的 `weight` 和内部各题的系数。
+当前版本文件的 `matching.dimensions`，修改各维度的 `weight` 和内部各题的 `weight`。
 
 ### 加硬过滤规则
-`algorithm.ts` → `HARD_FILTER_CONFIGS` 数组，加 `{ questionId, incompatiblePairs }` 条目。
+当前版本文件的 `matching.hardFilters` 数组，加 `{ questionId, incompatiblePairs }` 条目。
 
 ### 数据库迁移（改了 schema 后）
 ```bash
