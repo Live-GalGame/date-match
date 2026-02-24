@@ -823,32 +823,26 @@ export default function SurveyPage() {
             感谢你完成快速版测试
           </p>
 
-          <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
-            <div className="flex items-start gap-3">
-              <span className="text-3xl shrink-0">📬</span>
-              <div>
-                <h3 className="font-serif text-lg font-bold text-amber-900 dark:text-amber-200 mb-1">
-                  请去邮箱验证！
-                </h3>
-                <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
-                  我们已发送一封验证邮件到{" "}
-                  <span className="font-semibold">{email}</span>
-                  ，请点击邮件中的「验证邮箱」按钮。
-                </p>
-                <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
-                  只有验证邮箱后，才会进入每周匹配！
-                </p>
-                <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
-                  {emailSendIssue && (
-                    <span className="text-amber-800 dark:text-amber-300 font-semibold">
-                      ⚠️ {emailSendIssue}
-                    </span>
-                  )}
-                  <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
+          {emailSendIssue ? (
+            <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-300 dark:border-red-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl shrink-0">⚠️</span>
+                <div className="w-full">
+                  <h3 className="font-serif text-lg font-bold text-red-900 dark:text-red-200 mb-1">
+                    验证邮件发送失败
+                  </h3>
+                  <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
+                    你的问卷已保存，但发送到{" "}
+                    <span className="font-semibold">{email}</span>{" "}
+                    的验证邮件未成功送达。请点击下方按钮重新发送。
+                  </p>
+                  <p className="text-sm text-red-700 dark:text-red-400 font-semibold mt-2">
+                    不验证邮箱就无法参与匹配！
+                  </p>
                   <button
                     onClick={handleResend}
                     disabled={resendMutation.isPending || resendCooldown > 0}
-                    className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="mt-3 w-full py-2.5 bg-red-600 dark:bg-red-700 text-white rounded-full font-medium hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {resendMutation.isPending
                       ? "发送中..."
@@ -857,21 +851,66 @@ export default function SurveyPage() {
                         : resendMutation.isError
                           ? "发送失败，点击重试"
                           : resendMutation.isSuccess
-                            ? "再发一次"
+                            ? "✓ 已发送！再发一次"
                             : "重新发送验证邮件"}
                   </button>
                   {resendMutation.isSuccess && resendCooldown <= 0 && (
-                    <span className="text-amber-700 dark:text-amber-400">
-                      已发送！如果还是没收到，可能是邮箱地址有误，可以重新提交问卷修改
-                    </span>
+                    <p className="text-xs text-red-700 dark:text-red-400 mt-2">
+                      已发送！请检查收件箱和垃圾邮件文件夹。如还是没收到，可能是邮箱地址有误，可重新提交问卷修改。
+                    </p>
                   )}
-                  <span className="text-amber-500/80 dark:text-amber-600">
+                  <p className="text-xs text-red-500/80 dark:text-red-600 mt-2">
                     验证链接 24 小时内有效
-                  </span>
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
+              <div className="flex items-start gap-3">
+                <span className="text-3xl shrink-0">📬</span>
+                <div>
+                  <h3 className="font-serif text-lg font-bold text-amber-900 dark:text-amber-200 mb-1">
+                    请去邮箱验证！
+                  </h3>
+                  <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                    我们已发送一封验证邮件到{" "}
+                    <span className="font-semibold">{email}</span>
+                    ，请点击邮件中的「验证邮箱」按钮。
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
+                    只有验证邮箱后，才会进入每周匹配！
+                  </p>
+                  <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
+                    <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
+                    <button
+                      onClick={handleResend}
+                      disabled={resendMutation.isPending || resendCooldown > 0}
+                      className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {resendMutation.isPending
+                        ? "发送中..."
+                        : resendCooldown > 0
+                          ? `${resendCooldown}s 后可重新发送`
+                          : resendMutation.isError
+                            ? "发送失败，点击重试"
+                            : resendMutation.isSuccess
+                              ? "再发一次"
+                              : "重新发送验证邮件"}
+                    </button>
+                    {resendMutation.isSuccess && resendCooldown <= 0 && (
+                      <span className="text-amber-700 dark:text-amber-400">
+                        已发送！如果还是没收到，可能是邮箱地址有误，可以重新提交问卷修改
+                      </span>
+                    )}
+                    <span className="text-amber-500/80 dark:text-amber-600">
+                      验证链接 24 小时内有效
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
             <h3 className="font-serif text-lg mb-2">🔬 想要更精准的匹配？</h3>
@@ -922,32 +961,26 @@ export default function SurveyPage() {
           </p>
         )}
 
-        <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
-          <div className="flex items-start gap-3">
-            <span className="text-3xl shrink-0">📬</span>
-            <div>
-              <h3 className="font-serif text-lg font-bold text-amber-900 dark:text-amber-200 mb-1">
-                请去邮箱验证！
-              </h3>
-              <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
-                我们已发送一封验证邮件到{" "}
-                <span className="font-semibold">{email}</span>
-                ，请点击邮件中的「验证邮箱」按钮。
-              </p>
-              <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
-                只有验证邮箱后，才会进入每周匹配！
-              </p>
-              <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
-                {emailSendIssue && (
-                  <span className="text-amber-800 dark:text-amber-300 font-semibold">
-                    ⚠️ {emailSendIssue}
-                  </span>
-                )}
-                <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
+        {emailSendIssue ? (
+          <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-300 dark:border-red-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl shrink-0">⚠️</span>
+              <div className="w-full">
+                <h3 className="font-serif text-lg font-bold text-red-900 dark:text-red-200 mb-1">
+                  验证邮件发送失败
+                </h3>
+                <p className="text-sm text-red-800 dark:text-red-300 leading-relaxed">
+                  你的问卷已保存，但发送到{" "}
+                  <span className="font-semibold">{email}</span>{" "}
+                  的验证邮件未成功送达。请点击下方按钮重新发送。
+                </p>
+                <p className="text-sm text-red-700 dark:text-red-400 font-semibold mt-2">
+                  不验证邮箱就无法参与匹配！
+                </p>
                 <button
                   onClick={handleResend}
                   disabled={resendMutation.isPending || resendCooldown > 0}
-                  className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-3 w-full py-2.5 bg-red-600 dark:bg-red-700 text-white rounded-full font-medium hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {resendMutation.isPending
                     ? "发送中..."
@@ -956,21 +989,66 @@ export default function SurveyPage() {
                       : resendMutation.isError
                         ? "发送失败，点击重试"
                         : resendMutation.isSuccess
-                          ? "再发一次"
+                          ? "✓ 已发送！再发一次"
                           : "重新发送验证邮件"}
                 </button>
                 {resendMutation.isSuccess && resendCooldown <= 0 && (
-                  <span className="text-amber-700 dark:text-amber-400">
-                    已发送！如果还是没收到，可能是邮箱地址有误，可以重新提交问卷修改
-                  </span>
+                  <p className="text-xs text-red-700 dark:text-red-400 mt-2">
+                    已发送！请检查收件箱和垃圾邮件文件夹。如还是没收到，可能是邮箱地址有误，可重新提交问卷修改。
+                  </p>
                 )}
-                <span className="text-amber-500/80 dark:text-amber-600">
+                <p className="text-xs text-red-500/80 dark:text-red-600 mt-2">
                   验证链接 24 小时内有效
-                </span>
+                </p>
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl shrink-0">📬</span>
+              <div>
+                <h3 className="font-serif text-lg font-bold text-amber-900 dark:text-amber-200 mb-1">
+                  请去邮箱验证！
+                </h3>
+                <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                  我们已发送一封验证邮件到{" "}
+                  <span className="font-semibold">{email}</span>
+                  ，请点击邮件中的「验证邮箱」按钮。
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
+                  只有验证邮箱后，才会进入每周匹配！
+                </p>
+                <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
+                  <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
+                  <button
+                    onClick={handleResend}
+                    disabled={resendMutation.isPending || resendCooldown > 0}
+                    className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resendMutation.isPending
+                      ? "发送中..."
+                      : resendCooldown > 0
+                        ? `${resendCooldown}s 后可重新发送`
+                        : resendMutation.isError
+                          ? "发送失败，点击重试"
+                          : resendMutation.isSuccess
+                            ? "再发一次"
+                            : "重新发送验证邮件"}
+                  </button>
+                  {resendMutation.isSuccess && resendCooldown <= 0 && (
+                    <span className="text-amber-700 dark:text-amber-400">
+                      已发送！如果还是没收到，可能是邮箱地址有误，可以重新提交问卷修改
+                    </span>
+                  )}
+                  <span className="text-amber-500/80 dark:text-amber-600">
+                    验证链接 24 小时内有效
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {hasLiteData && (
           <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 max-w-md mx-auto mb-6">

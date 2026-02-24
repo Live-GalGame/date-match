@@ -6,7 +6,7 @@
 
 关系兼容性匹配平台。用户无需注册即可填写心理学问卷 → 最后一步留下邮箱 → 系统计算五维度兼容度 → 每周匹配一对 → 邮件通知结果。
 
-**线上地址：** https://www.date-match.online（自定义域名）/ https://date-match.vercel.app（Vercel 默认）
+**线上地址：** https://www.date-match.online（阿里云国内域名）/ https://date-match.vercel.app（Vercel 默认）
 
 ## 部署架构
 
@@ -16,6 +16,28 @@
 | **Turso** | 托管 LibSQL 数据库（东京区域） | `src/server/db/index.ts` |
 | **Resend** | 邮件发送 | `src/lib/auth.ts` + `src/server/email/send-match.ts` |
 
+### 本地 CLI 工具（已安装，可直接使用）
+
+| CLI | 用途 | 常用命令 |
+|-----|------|---------|
+| **Turso CLI** | 直接查询/管理生产数据库 | `turso db shell date-match "SQL语句"` |
+| **Vercel CLI** | 部署、环境变量管理 | `vercel deploy --prod`、`vercel env ls` |
+
+无需额外登录，本地已配置好认证。可随时通过 `turso db shell date-match` 直接查询生产数据。
+
+**常用查询示例：**
+
+```bash
+# 各表行数概览
+turso db shell date-match "SELECT 'User' AS tbl, COUNT(*) AS cnt FROM User UNION ALL SELECT 'SurveyResponse', COUNT(*) FROM SurveyResponse UNION ALL SELECT 'Verification', COUNT(*) FROM Verification UNION ALL SELECT 'Match', COUNT(*) FROM Match;"
+
+# 邮箱验证状态分布
+turso db shell date-match "SELECT emailVerified, COUNT(*) FROM User GROUP BY emailVerified;"
+
+# 查看表结构
+turso db shell date-match "PRAGMA table_info(Profile);"
+```
+
 ### 环境变量（Vercel Dashboard 管理）
 
 | 变量 | 说明 |
@@ -23,7 +45,7 @@
 | `DATABASE_URL` | Turso LibSQL URL (`libsql://...turso.io`) |
 | `TURSO_AUTH_TOKEN` | Turso 数据库认证 JWT |
 | `BETTER_AUTH_SECRET` | Better Auth 签名密钥 |
-| `BETTER_AUTH_URL` | 生产环境 URL (`https://date-match.vercel.app`) |
+| `BETTER_AUTH_URL` | 生产环境 URL (`https://www.date-match.online`) |
 | `RESEND_API_KEY` | Resend 邮件服务 API Key |
 | `EMAIL_FROM` | 发件人地址（需在 Resend 验证域名） |
 
