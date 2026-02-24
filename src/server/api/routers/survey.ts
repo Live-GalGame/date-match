@@ -85,6 +85,7 @@ export const surveyRouter = createTRPCRouter({
           z.union([z.number(), z.string(), z.array(z.string())])
         ),
         surveyVersion: z.string().optional(),
+        referralCode: z.string().max(100).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -98,9 +99,11 @@ export const surveyRouter = createTRPCRouter({
         create: {
           email: input.email,
           name: input.displayName,
+          referralCode: input.referralCode ?? "",
         },
         update: {
           name: input.displayName,
+          ...(input.referralCode ? { referralCode: input.referralCode } : {}),
         },
       });
 

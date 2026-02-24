@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { trpc } from "@/lib/trpc";
 import { getSurveyVersion } from "@/lib/survey-questions";
@@ -102,6 +103,18 @@ const HELICOPTER_PHOTOS = [
 ];
 
 export default function SurveyPage() {
+  const searchParams = useSearchParams();
+  const [referralCode] = useState<string>(() => {
+    const fromUrl = typeof window !== "undefined"
+      ? searchParams.get("code") ?? ""
+      : "";
+    if (fromUrl) {
+      try { localStorage.setItem("referralCode", fromUrl); } catch {}
+      return fromUrl;
+    }
+    try { return localStorage.getItem("referralCode") ?? ""; } catch { return ""; }
+  });
+
   const [savedState] = useState<Partial<PersistedSurveyState>>(() =>
     loadPersistedSurveyState()
   );
@@ -288,6 +301,7 @@ export default function SurveyPage() {
       schoolTier,
       answers: mergedAnswers,
       surveyVersion: versionTag,
+      referralCode: referralCode || undefined,
     });
   }
 
@@ -1136,7 +1150,9 @@ export default function SurveyPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">学历</label>
+            <label className="block text-sm font-medium mb-2">
+              最高学历
+            </label>
             <div className="grid grid-cols-4 gap-2">
               {(["高中", "本科", "硕士", "博士"] as const).map((opt) => (
                 <button
@@ -1154,34 +1170,48 @@ export default function SurveyPage() {
                 </button>
               ))}
             </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              请填写你目前已取得或正在就读的最高学历（在读也算）
+            </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">院校层级</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(["清北", "C9", "985", "211", "一本", "其他"] as const).map(
-                (opt) => (
-                  <button
-                    key={opt}
-                    type="button"
-                    onClick={() => setSchoolTier(opt)}
-                    className={cn(
-                      "py-2.5 rounded-xl border text-sm font-medium transition-all",
-                      schoolTier === opt
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border bg-card text-foreground hover:border-primary/40"
-                    )}
-                  >
-                    {opt}
-                  </button>
-                )
-              )}
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { value: "清北", label: "清北", sub: "清华 / 北大" },
+                  { value: "C9", label: "C9", sub: "复旦、交大、浙大等" },
+                  { value: "985", label: "985", sub: "或 QS 前 50" },
+                  { value: "211", label: "211", sub: "或 QS 前 100" },
+                  { value: "一本", label: "一本", sub: "或 QS 前 300" },
+                  { value: "其他", label: "其他", sub: "二本 / 专科 / 海外其他" },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setSchoolTier(opt.value)}
+                  className={cn(
+                    "py-2.5 px-3 rounded-xl border text-sm font-medium transition-all flex flex-col items-center gap-0.5",
+                    schoolTier === opt.value
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card text-foreground hover:border-primary/40"
+                  )}
+                >
+                  <span>{opt.label}</span>
+                  <span className={cn("text-xs font-normal", schoolTier === opt.value ? "text-primary/70" : "text-muted-foreground")}>{opt.sub}</span>
+                </button>
+              ))}
             </div>
             {education === "高中" && (
               <p className="text-xs text-muted-foreground mt-2">
                 高中生可选「其他」，不影响匹配
               </p>
             )}
+            <p className="text-xs text-muted-foreground mt-2">
+              海外院校请参考 QS 排名对应选择；在读请选当前就读院校层级
+            </p>
           </div>
 
           <div>
@@ -1222,7 +1252,13 @@ export default function SurveyPage() {
 
         {mutation.error && (
           <p className="text-destructive text-sm mt-4 text-center">
-            提交失败，请重试。
+            提交失败，请重试。如果问题持续存在，请联系{" "}
+            <a
+              href="mailto:hzy2210@gmail.com"
+              className="underline hover:opacity-80"
+            >
+              hzy2210@gmail.com
+            </a>
           </p>
         )}
       </div>

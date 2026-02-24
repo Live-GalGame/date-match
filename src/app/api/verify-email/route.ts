@@ -29,8 +29,6 @@ export async function GET(req: Request) {
     data: { emailVerified: true },
   });
 
-  await db.verification.delete({ where: { id: record.id } });
-
   return NextResponse.redirect(
     new URL("/email-verified?status=success", req.url)
   );

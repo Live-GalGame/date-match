@@ -21,6 +21,7 @@ model User {
   surveyResponse   SurveyResponse?
   sentMatches      Match[]  @relation("MatchUser1")
   receivedMatches  Match[]  @relation("MatchUser2")
+  referralCode     String    @default("")
   sessions         Session[]
   accounts         Account[]
 }

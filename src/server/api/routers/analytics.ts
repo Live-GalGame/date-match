@@ -179,6 +179,7 @@ export const analyticsRouter = createTRPCRouter({
             email: true,
             name: true,
             emailVerified: true,
+            referralCode: true,
             createdAt: true,
             profile: {
               select: {
@@ -248,9 +249,19 @@ export const analyticsRouter = createTRPCRouter({
           surveyVersion,
           completed: u.surveyResponse?.completed ?? false,
           optedIn: u.surveyResponse?.optedIn ?? false,
+          referralCode: u.referralCode ?? "",
           createdAt: u.createdAt.toISOString(),
         };
       });
+
+      const referralStats: Record<string, { total: number; verified: number }> = {};
+      for (const u of users) {
+        const code = u.referralCode || "";
+        if (!code) continue;
+        if (!referralStats[code]) referralStats[code] = { total: 0, verified: 0 };
+        referralStats[code]!.total++;
+        if (u.emailVerified) referralStats[code]!.verified++;
+      }
 
       return {
         totalResponses: responses.length,
@@ -261,6 +272,7 @@ export const analyticsRouter = createTRPCRouter({
           count: helicopterPilots.length,
           names: helicopterPilots.map((p) => p.displayName),
         },
+        referralStats,
         userList,
       };
     }),

@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-export function Hero() {
+export function Hero({ code }: { code?: string }) {
+  const surveyHref = code
+    ? `/onboarding/survey?code=${encodeURIComponent(code)}`
+    : "/onboarding/survey";
+
   return (
     <section className="relative min-h-[85vh] flex flex-col items-center justify-center text-center hero-gradient text-white overflow-hidden">
       <div className="absolute inset-0 bg-[url('/stars.svg')] opacity-30 bg-repeat" />
@@ -27,7 +31,7 @@ export function Hero() {
           基于心理学的深度兼容性测试，每周为你匹配一位灵魂契合的人。
         </p>
         <Link
-          href="/onboarding/survey"
+          href={surveyHref}
           className="inline-block px-10 py-4 rounded-full bg-white text-primary font-medium text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
         >
           开始测试
