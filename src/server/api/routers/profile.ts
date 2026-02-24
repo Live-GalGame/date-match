@@ -18,6 +18,9 @@ export const profileRouter = createTRPCRouter({
         major: z.string().optional(),
         classYear: z.string().optional(),
         bio: z.string().max(500).optional(),
+        education: z.string().optional(),
+        schoolTier: z.string().optional(),
+        datingPreference: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

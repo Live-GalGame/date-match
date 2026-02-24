@@ -16,7 +16,7 @@ export default function SignInPage() {
     setError("");
 
     try {
-      await authClient.signIn.magicLink({ email, callbackURL: "/onboarding/profile" });
+      await authClient.signIn.magicLink({ email, callbackURL: "/dashboard" });
       setSent(true);
     } catch {
       setError("Failed to send magic link. Please try again.");

@@ -129,12 +129,20 @@ function VerifiedContent() {
           </ul>
         </div>
 
-        <Link
-          href="/"
-          className="inline-block py-3 px-8 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors"
-        >
-          返回首页
-        </Link>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/auth/signin"
+            className="inline-block py-3 px-8 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors"
+          >
+            登录查看面板
+          </Link>
+          <Link
+            href="/"
+            className="inline-block py-3 px-8 rounded-full border border-border text-foreground font-medium text-lg hover:bg-muted transition-colors"
+          >
+            返回首页
+          </Link>
+        </div>
       </div>
     </div>
   );
