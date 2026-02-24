@@ -561,17 +561,21 @@ export default function SurveyPage() {
               </p>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { emoji: "A", text: "强忍3分钟才回（不能显得太上头）" },
-                  { emoji: "B", text: "秒回！手速超越打游戏" },
-                  { emoji: "C", text: "先截图发群里，召唤智囊团分析" },
-                  { emoji: "D", text: "精心编辑一条完美回复" },
+                  { image: "/数据标注/Q2A.png", text: "强忍3分钟才回" },
+                  { image: "/数据标注/Q2B.png", text: "秒回！手速超越打游戏" },
+                  { image: "/数据标注/Q2C.png", text: "截图发群，召唤智囊团" },
+                  { image: "/数据标注/Q2D.png", text: "精心编辑一条完美回复" },
                 ].map((item) => (
                   <div
-                    key={item.emoji}
-                    className="bg-card rounded-lg p-2.5 text-center"
+                    key={item.image}
+                    className="bg-card rounded-lg overflow-hidden text-center"
                   >
-                    <span className="text-base font-semibold block mb-0.5">{item.emoji}</span>
-                    <span className="text-xs text-muted-foreground">
+                    <img
+                      src={item.image}
+                      alt={item.text}
+                      className="w-full aspect-square object-cover"
+                    />
+                    <span className="text-xs text-muted-foreground block px-1.5 py-1.5">
                       {item.text}
                     </span>
                   </div>
@@ -709,10 +713,28 @@ export default function SurveyPage() {
           <p className="text-muted-foreground text-lg mb-2">
             感谢你完成快速版测试
           </p>
-          <p className="text-muted-foreground mb-8">
-            匹配结果将发送至{" "}
-            <span className="font-medium text-foreground">{email}</span>
-          </p>
+
+          <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
+            <div className="flex items-start gap-3">
+              <span className="text-3xl shrink-0">📬</span>
+              <div>
+                <h3 className="font-serif text-lg font-bold text-amber-900 dark:text-amber-200 mb-1">
+                  请去邮箱验证！
+                </h3>
+                <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                  我们已发送一封验证邮件到{" "}
+                  <span className="font-semibold">{email}</span>
+                  ，请点击邮件中的「验证邮箱」按钮。
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
+                  只有验证邮箱后，才会进入每周匹配！
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">
+                  没收到？请检查垃圾邮件文件夹，链接 24 小时内有效
+                </p>
+              </div>
+            </div>
+          </div>
 
           <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
             <h3 className="font-serif text-lg mb-2">🔬 想要更精准的匹配？</h3>
@@ -729,19 +751,19 @@ export default function SurveyPage() {
           </div>
 
           <div className="mt-6 bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
-            <h3 className="font-serif text-lg mb-3">接下来会发生什么？</h3>
+            <h3 className="font-serif text-lg mb-3">验证邮箱后会发生什么？</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex gap-2">
                 <span className="text-primary">1.</span>
-                我们会在每周匹配轮次中为你寻找最契合的对象
+                点击邮件中的验证链接，激活你的匹配资格
               </li>
               <li className="flex gap-2">
                 <span className="text-primary">2.</span>
-                匹配成功后，你会收到邮件通知
+                我们会在每周匹配轮次中为你寻找最契合的对象
               </li>
               <li className="flex gap-2">
                 <span className="text-primary">3.</span>
-                邮件中会包含对方的联系方式和匹配原因
+                匹配成功后，邮件通知你对方的联系方式和匹配原因
               </li>
             </ul>
           </div>
@@ -762,10 +784,28 @@ export default function SurveyPage() {
             感谢你完成《关系基因匹配测试·深度版》
           </p>
         )}
-        <p className="text-muted-foreground mb-8">
-          匹配结果将发送至{" "}
-          <span className="font-medium text-foreground">{email}</span>
-        </p>
+
+        <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-300 dark:border-amber-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
+          <div className="flex items-start gap-3">
+            <span className="text-3xl shrink-0">📬</span>
+            <div>
+              <h3 className="font-serif text-lg font-bold text-amber-900 dark:text-amber-200 mb-1">
+                请去邮箱验证！
+              </h3>
+              <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                我们已发送一封验证邮件到{" "}
+                <span className="font-semibold">{email}</span>
+                ，请点击邮件中的「验证邮箱」按钮。
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
+                只有验证邮箱后，才会进入每周匹配！
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">
+                没收到？请检查垃圾邮件文件夹，链接 24 小时内有效
+              </p>
+            </div>
+          </div>
+        </div>
 
         {hasLiteData && (
           <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 max-w-md mx-auto mb-6">
@@ -776,19 +816,19 @@ export default function SurveyPage() {
         )}
 
         <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
-          <h3 className="font-serif text-lg mb-3">接下来会发生什么？</h3>
+          <h3 className="font-serif text-lg mb-3">验证邮箱后会发生什么？</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
               <span className="text-primary">1.</span>
-              我们会在每周匹配轮次中为你寻找最契合的对象
+              点击邮件中的验证链接，激活你的匹配资格
             </li>
             <li className="flex gap-2">
               <span className="text-primary">2.</span>
-              匹配成功后，你会收到邮件通知
+              我们会在每周匹配轮次中为你寻找最契合的对象
             </li>
             <li className="flex gap-2">
               <span className="text-primary">3.</span>
-              邮件中会包含对方的联系方式和匹配原因
+              匹配成功后，邮件通知你对方的联系方式和匹配原因
             </li>
           </ul>
         </div>

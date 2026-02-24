@@ -24,6 +24,8 @@ export function EmojiCardSelect({
   value,
   onChange,
 }: EmojiCardSelectProps) {
+  const hasImages = options.some((o) => o.image);
+
   return (
     <div className="py-4">
       <h2 className="font-serif text-2xl sm:text-3xl text-center mb-2 leading-tight">
@@ -41,25 +43,35 @@ export function EmojiCardSelect({
             type="button"
             onClick={() => onChange(option.value)}
             className={cn(
-              "flex flex-col items-center gap-2 p-5 rounded-2xl border-2 transition-all duration-200",
-              "hover:scale-[1.03] hover:shadow-md active:scale-[0.98]",
+              "flex flex-col items-center rounded-2xl border-2 transition-all duration-200 overflow-hidden",
+              "hover:scale-[1.02] hover:shadow-md active:scale-[0.98]",
+              hasImages ? "gap-0" : "gap-2 p-5",
               value === option.value
                 ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
                 : "border-border bg-card hover:border-primary/30"
             )}
           >
             {option.image ? (
-              <img
-                src={option.image}
-                alt=""
-                className="w-16 h-16 object-contain"
-              />
-            ) : option.emoji ? (
-              <span className="text-4xl leading-none">{option.emoji}</span>
-            ) : null}
-            <span className="text-sm text-center font-medium leading-snug">
-              {option.label}
-            </span>
+              <>
+                <img
+                  src={option.image}
+                  alt={option.label}
+                  className="w-full aspect-square object-cover"
+                />
+                <span className="text-xs sm:text-sm text-center font-medium leading-snug px-2 py-2.5">
+                  {option.label}
+                </span>
+              </>
+            ) : (
+              <>
+                {option.emoji && (
+                  <span className="text-4xl leading-none">{option.emoji}</span>
+                )}
+                <span className="text-sm text-center font-medium leading-snug">
+                  {option.label}
+                </span>
+              </>
+            )}
           </button>
         ))}
       </div>

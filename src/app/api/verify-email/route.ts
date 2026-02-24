@@ -7,7 +7,7 @@ export async function GET(req: Request) {
 
   if (!token) {
     return NextResponse.redirect(
-      new URL("/onboarding/survey?verified=invalid", req.url)
+      new URL("/email-verified?status=invalid", req.url)
     );
   }
 
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   if (!record) {
     return NextResponse.redirect(
-      new URL("/onboarding/survey?verified=expired", req.url)
+      new URL("/email-verified?status=expired", req.url)
     );
   }
 
@@ -32,6 +32,6 @@ export async function GET(req: Request) {
   await db.verification.delete({ where: { id: record.id } });
 
   return NextResponse.redirect(
-    new URL("/onboarding/survey?verified=true", req.url)
+    new URL("/email-verified?status=success", req.url)
   );
 }
