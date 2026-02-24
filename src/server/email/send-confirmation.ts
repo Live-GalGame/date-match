@@ -13,13 +13,20 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData) {
   }
 
   const { Resend } = await import("resend");
-  const resend = new Resend(process.env.RESEND_API_KEY);
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error("RESEND_API_KEY is missing");
+  }
+  const resend = new Resend(apiKey);
+  const from = process.env.EMAIL_FROM?.trim() || "Date Match <noreply@datematch.com>";
+  const replyTo = process.env.REPLY_TO_EMAIL?.trim();
 
-  await resend.emails.send({
-    from: process.env.EMAIL_FROM || "Date Match <noreply@datematch.com>",
-    replyTo: process.env.REPLY_TO_EMAIL || undefined,
+  const { data: sentEmail, error } = await resend.emails.send({
+    from,
+    replyTo: replyTo || undefined,
     to: data.toEmail,
     subject: "验证你的邮箱 — Date Match",
+    tags: [{ name: "email_type", value: "verification" }],
     html: `
       <div style="font-family: Georgia, 'Noto Serif SC', serif; max-width: 520px; margin: 0 auto; padding: 40px 20px; background: #fdf6f0;">
         <h1 style="color: #8b2252; font-size: 28px; margin-bottom: 8px;">date match.</h1>
@@ -81,4 +88,12 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData) {
       </div>
     `,
   });
+
+  if (error) {
+    throw new Error(
+      `[resend] ${error.name} (${error.statusCode ?? "unknown"}): ${error.message}`
+    );
+  }
+
+  return sentEmail?.id ?? null;
 }

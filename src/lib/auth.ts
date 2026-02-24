@@ -18,11 +18,17 @@ export const auth = betterAuth({
           return;
         }
         const { Resend } = await import("resend");
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: process.env.EMAIL_FROM || "Date Match <noreply@datematch.com>",
+        const apiKey = process.env.RESEND_API_KEY?.trim();
+        if (!apiKey) {
+          throw new Error("RESEND_API_KEY is missing");
+        }
+        const resend = new Resend(apiKey);
+        const from = process.env.EMAIL_FROM?.trim() || "Date Match <noreply@datematch.com>";
+        const { error } = await resend.emails.send({
+          from,
           to: email,
           subject: "Sign in to Date Match",
+          tags: [{ name: "email_type", value: "magic_link" }],
           html: `
             <div style="font-family: Georgia, serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
               <h1 style="color: #8b2252; font-size: 28px;">Date Match</h1>
@@ -38,6 +44,12 @@ export const auth = betterAuth({
             </div>
           `,
         });
+
+        if (error) {
+          throw new Error(
+            `[resend] ${error.name} (${error.statusCode ?? "unknown"}): ${error.message}`
+          );
+        }
       },
     }),
   ],

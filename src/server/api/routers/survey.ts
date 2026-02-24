@@ -144,9 +144,10 @@ export const surveyRouter = createTRPCRouter({
       });
 
       const baseUrl =
-        process.env.BETTER_AUTH_URL || "http://localhost:3000";
+        (process.env.BETTER_AUTH_URL || "http://localhost:3000").trim();
       const verifyUrl = `${baseUrl}/api/verify-email?token=${token}`;
 
+      let emailSent = true;
       try {
         await sendConfirmationEmail({
           toEmail: input.email,
@@ -154,10 +155,11 @@ export const surveyRouter = createTRPCRouter({
           verifyUrl,
         });
       } catch (err) {
+        emailSent = false;
         console.error("[sendConfirmationEmail] failed:", err);
       }
 
-      return { success: true, userId: user.id };
+      return { success: true, userId: user.id, emailSent };
     }),
 
   resendConfirmation: publicProcedure
@@ -169,7 +171,8 @@ export const surveyRouter = createTRPCRouter({
       });
 
       if (!user) {
-        throw new Error("User not found");
+        // Don't reveal whether the email exists
+        return { success: true };
       }
 
       const token = randomUUID();
@@ -183,7 +186,8 @@ export const surveyRouter = createTRPCRouter({
         },
       });
 
-      const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+      const baseUrl =
+        (process.env.BETTER_AUTH_URL || "http://localhost:3000").trim();
       const verifyUrl = `${baseUrl}/api/verify-email?token=${token}`;
 
       await sendConfirmationEmail({

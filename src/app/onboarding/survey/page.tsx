@@ -19,6 +19,33 @@ type VersionId = "v3-lite" | "v2";
 type Gender = "" | "男" | "女" | "不愿意透露" | "武装直升机";
 type DatingPref = "" | "男" | "女" | "不愿意透露";
 
+interface PersistedSurveyState {
+  answers: Answers;
+  liteAnswers: Answers;
+  selectedVersion: VersionId | null;
+  currentIndex: number;
+  gender: Gender;
+  datingPreference: DatingPref;
+  genderDone: boolean;
+  email: string;
+  displayName: string;
+  education: string;
+  schoolTier: string;
+}
+
+function loadPersistedSurveyState(): Partial<PersistedSurveyState> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem("surveyState");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed ? parsed : {};
+  } catch (e) {
+    console.error("Failed to load survey state:", e);
+    return {};
+  }
+}
+
 const GENDER_OPTIONS: { value: Gender; emoji: string; label: string }[] = [
   { value: "男", emoji: "👨", label: "男" },
   { value: "女", emoji: "👩", label: "女" },
@@ -75,53 +102,51 @@ const HELICOPTER_PHOTOS = [
 ];
 
 export default function SurveyPage() {
-  const [gender, setGender] = useState<Gender>("");
-  const [datingPreference, setDatingPreference] = useState<DatingPref>("");
-  const [genderDone, setGenderDone] = useState(false);
+  const [savedState] = useState<Partial<PersistedSurveyState>>(() =>
+    loadPersistedSurveyState()
+  );
+  const [gender, setGender] = useState<Gender>(
+    (savedState.gender as Gender) || ""
+  );
+  const [datingPreference, setDatingPreference] = useState<DatingPref>(
+    (savedState.datingPreference as DatingPref) || ""
+  );
+  const [genderDone, setGenderDone] = useState(Boolean(savedState.genderDone));
 
   // Helicopter quiz states
   const [heliPhase, setHeliPhase] = useState<null | "quiz" | "loading" | "result">(null);
-  const [heliLoadingText, setHeliLoadingText] = useState("");
   const [heliStep, setHeliStep] = useState(0);
   const [heliAnswers, setHeliAnswers] = useState<Record<string, string>>({});
   const [showHeliSplash, setShowHeliSplash] = useState(false);
   const heliSplashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [selectedVersion, setSelectedVersion] = useState<VersionId | null>(null);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answers>({});
-  const [email, setEmail] = useState("");
-  const [displayName, setDisplayName] = useState("");
-  const [education, setEducation] = useState("");
-  const [schoolTier, setSchoolTier] = useState("");
+  const [selectedVersion, setSelectedVersion] = useState<VersionId | null>(
+    savedState.selectedVersion === "v3-lite" || savedState.selectedVersion === "v2"
+      ? savedState.selectedVersion
+      : null
+  );
+  const [currentIndex, setCurrentIndex] = useState(
+    typeof savedState.currentIndex === "number" ? savedState.currentIndex : 0
+  );
+  const [answers, setAnswers] = useState<Answers>(
+    savedState.answers && typeof savedState.answers === "object"
+      ? savedState.answers
+      : {}
+  );
+  const [email, setEmail] = useState(savedState.email || "");
+  const [displayName, setDisplayName] = useState(savedState.displayName || "");
+  const [education, setEducation] = useState(savedState.education || "");
+  const [schoolTier, setSchoolTier] = useState(savedState.schoolTier || "");
   const [submitted, setSubmitted] = useState(false);
-  const [liteAnswers, setLiteAnswers] = useState<Answers>({});
+  const [emailSendIssue, setEmailSendIssue] = useState<string | null>(null);
+  const [liteAnswers, setLiteAnswers] = useState<Answers>(
+    savedState.liteAnswers && typeof savedState.liteAnswers === "object"
+      ? savedState.liteAnswers
+      : {}
+  );
   const [showDeepIntro, setShowDeepIntro] = useState(false);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLiteData = Object.keys(liteAnswers).length > 0;
-
-  // Load saved state on mount
-  useEffect(() => {
-    try {
-      const savedState = localStorage.getItem("surveyState");
-      if (savedState) {
-        const parsed = JSON.parse(savedState);
-        if (parsed.answers) setAnswers(parsed.answers);
-        if (parsed.liteAnswers) setLiteAnswers(parsed.liteAnswers);
-        if (parsed.selectedVersion) setSelectedVersion(parsed.selectedVersion);
-        if (parsed.currentIndex !== undefined) setCurrentIndex(parsed.currentIndex);
-        if (parsed.gender) setGender(parsed.gender);
-        if (parsed.datingPreference) setDatingPreference(parsed.datingPreference);
-        if (parsed.genderDone !== undefined) setGenderDone(parsed.genderDone);
-        if (parsed.email) setEmail(parsed.email);
-        if (parsed.displayName) setDisplayName(parsed.displayName);
-        if (parsed.education) setEducation(parsed.education);
-        if (parsed.schoolTier) setSchoolTier(parsed.schoolTier);
-      }
-    } catch (e) {
-      console.error("Failed to load survey state:", e);
-    }
-  }, []);
 
   // Save state on change
   useEffect(() => {
@@ -159,23 +184,41 @@ export default function SurveyPage() {
     () =>
       Array.from({ length: 24 }, (_, i) => ({
         id: i,
-        left: `${Math.random() * 95}%`,
-        duration: `${4 + Math.random() * 5}s`,
-        delay: `${Math.random() * 3}s`,
-        size: `${1.5 + Math.random() * 2}rem`,
+        // Deterministic layout to satisfy React purity rules.
+        left: `${(i * 37) % 95}%`,
+        duration: `${4 + ((i * 17) % 50) / 10}s`,
+        delay: `${((i * 13) % 30) / 10}s`,
+        size: `${1.5 + ((i * 19) % 20) / 10}rem`,
       })),
     []
   );
 
   const mutation = trpc.survey.submitPublic.useMutation({
-    onSuccess: () => setSubmitted(true),
+    onSuccess: (result) => {
+      if (result.emailSent) {
+        setEmailSendIssue(null);
+      } else {
+        setEmailSendIssue("首次验证邮件发送失败，请点击下方按钮重新发送。");
+      }
+      setSubmitted(true);
+    },
   });
 
   const resendMutation = trpc.survey.resendConfirmation.useMutation();
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const handleResend = () => {
-    if (!email) return;
-    resendMutation.mutate({ email });
+    if (!email || resendMutation.isPending || resendCooldown > 0) return;
+    resendMutation.reset();
+    resendMutation.mutate({ email }, {
+      onSettled: () => setResendCooldown(5),
+    });
   };
 
   const version = selectedVersion ? getSurveyVersion(selectedVersion) : null;
@@ -229,6 +272,7 @@ export default function SurveyPage() {
 
   function handleSubmit() {
     if (!email || !displayName || !education || !schoolTier) return;
+    setEmailSendIssue(null);
     const mergedAnswers = { ...liteAnswers, ...answers };
     const versionTag = hasLiteData
       ? "v3-lite+v2"
@@ -788,16 +832,35 @@ export default function SurveyPage() {
                   只有验证邮箱后，才会进入每周匹配！
                 </p>
                 <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
-                  <span>没收到？请检查垃圾邮件文件夹，链接 24 小时内有效</span>
-                  <button 
+                  {emailSendIssue && (
+                    <span className="text-amber-800 dark:text-amber-300 font-semibold">
+                      ⚠️ {emailSendIssue}
+                    </span>
+                  )}
+                  <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
+                  <button
                     onClick={handleResend}
-                    disabled={resendMutation.isPending || resendMutation.isSuccess}
+                    disabled={resendMutation.isPending || resendCooldown > 0}
                     className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {resendMutation.isPending ? "发送中..." : 
-                     resendMutation.isSuccess ? "已重新发送！" : 
-                     resendMutation.isError ? "发送失败，请重试" : "没收到？重新发送"}
+                    {resendMutation.isPending
+                      ? "发送中..."
+                      : resendCooldown > 0
+                        ? `${resendCooldown}s 后可重新发送`
+                        : resendMutation.isError
+                          ? "发送失败，点击重试"
+                          : resendMutation.isSuccess
+                            ? "再发一次"
+                            : "重新发送验证邮件"}
                   </button>
+                  {resendMutation.isSuccess && resendCooldown <= 0 && (
+                    <span className="text-amber-700 dark:text-amber-400">
+                      已发送！如果还是没收到，可能是邮箱地址有误，可以重新提交问卷修改
+                    </span>
+                  )}
+                  <span className="text-amber-500/80 dark:text-amber-600">
+                    验证链接 24 小时内有效
+                  </span>
                 </div>
               </div>
             </div>
@@ -868,16 +931,35 @@ export default function SurveyPage() {
                 只有验证邮箱后，才会进入每周匹配！
               </p>
               <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
-                <span>没收到？请检查垃圾邮件文件夹，链接 24 小时内有效</span>
-                <button 
+                {emailSendIssue && (
+                  <span className="text-amber-800 dark:text-amber-300 font-semibold">
+                    ⚠️ {emailSendIssue}
+                  </span>
+                )}
+                <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
+                <button
                   onClick={handleResend}
-                  disabled={resendMutation.isPending || resendMutation.isSuccess}
+                  disabled={resendMutation.isPending || resendCooldown > 0}
                   className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {resendMutation.isPending ? "发送中..." : 
-                   resendMutation.isSuccess ? "已重新发送！" : 
-                   resendMutation.isError ? "发送失败，请重试" : "没收到？重新发送"}
+                  {resendMutation.isPending
+                    ? "发送中..."
+                    : resendCooldown > 0
+                      ? `${resendCooldown}s 后可重新发送`
+                      : resendMutation.isError
+                        ? "发送失败，点击重试"
+                        : resendMutation.isSuccess
+                          ? "再发一次"
+                          : "重新发送验证邮件"}
                 </button>
+                {resendMutation.isSuccess && resendCooldown <= 0 && (
+                  <span className="text-amber-700 dark:text-amber-400">
+                    已发送！如果还是没收到，可能是邮箱地址有误，可以重新提交问卷修改
+                  </span>
+                )}
+                <span className="text-amber-500/80 dark:text-amber-600">
+                  验证链接 24 小时内有效
+                </span>
               </div>
             </div>
           </div>
