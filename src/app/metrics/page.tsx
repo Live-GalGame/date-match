@@ -528,7 +528,7 @@ function UserTable({ users }: { users: UserRow[] }) {
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {new Date(u.createdAt).toLocaleDateString("zh-CN")}
+                    {new Date(u.createdAt).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}{" "}{new Date(u.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })}
                   </td>
                 </tr>
               ))}
