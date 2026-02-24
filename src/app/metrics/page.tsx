@@ -115,6 +115,7 @@ type StatsData = {
           type: string;
           totalResponses: number;
           options: { value: string; label: string; count: number }[];
+          textResponses?: string[];
         }[];
       }[];
     }
@@ -300,12 +301,11 @@ function QuestionCard({ question }: { question: QuestionData }) {
 
   if (type === "open_text") {
     return (
-      <div className="bg-card rounded-2xl border border-border shadow-sm p-5">
-        <p className="text-sm font-medium mb-2 leading-relaxed">{text}</p>
-        <p className="text-sm text-muted-foreground">
-          开放文本题 · 共 <span className="text-foreground font-medium">{totalResponses}</span> 人填写
-        </p>
-      </div>
+      <OpenTextCard
+        question={text}
+        totalResponses={totalResponses}
+        responses={question.textResponses ?? []}
+      />
     );
   }
 
@@ -363,6 +363,56 @@ function QuestionCard({ question }: { question: QuestionData }) {
           </tr>
         </tfoot>
       </table>
+    </div>
+  );
+}
+
+function OpenTextCard({
+  question,
+  totalResponses,
+  responses,
+}: {
+  question: string;
+  totalResponses: number;
+  responses: string[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full px-5 py-3 flex items-start justify-between gap-4 text-left hover:bg-muted/30 transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium leading-relaxed">{question}</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            开放文本题 · 共 {totalResponses} 人填写
+          </p>
+        </div>
+        <span className={`text-muted-foreground text-xs mt-1 shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}>
+          ▶
+        </span>
+      </button>
+      {expanded && responses.length > 0 && (
+        <div className="border-t border-border max-h-80 overflow-y-auto">
+          {responses.map((text, i) => (
+            <div
+              key={i}
+              className="px-5 py-3 border-b border-border/30 last:border-b-0"
+            >
+              <div className="flex gap-3">
+                <span className="text-xs text-muted-foreground shrink-0 mt-0.5 w-6 text-right">
+                  {i + 1}.
+                </span>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                  {text}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

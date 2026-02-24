@@ -23,6 +23,7 @@ interface QuestionStat {
   type: string;
   totalResponses: number;
   options: OptionStat[];
+  textResponses?: string[];
 }
 
 function aggregateQuestion(
@@ -122,13 +123,14 @@ function aggregateQuestion(
     };
   }
 
-  // open_text — just response count
+  // open_text — return all text responses
   return {
     id: q.id,
     question: q.question,
     type: q.type,
     totalResponses,
     options: [],
+    textResponses: raw.map((v) => String(v)),
   };
 }
 
