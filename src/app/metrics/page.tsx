@@ -123,6 +123,19 @@ type StatsData = {
     count: number;
     names: string[];
   };
+  userList: {
+    email: string;
+    name: string;
+    emailVerified: boolean;
+    gender: string;
+    datingPreference: string;
+    education: string;
+    schoolTier: string;
+    surveyVersion: string;
+    completed: boolean;
+    optedIn: boolean;
+    createdAt: string;
+  }[];
 };
 
 function Dashboard({ data }: { data: StatsData }) {
@@ -214,6 +227,9 @@ function Dashboard({ data }: { data: StatsData }) {
             </div>
           )}
         </section>
+
+        {/* User list */}
+        <UserTable users={data.userList} />
       </div>
     </div>
   );
@@ -397,5 +413,79 @@ function PercentBar({ pct }: { pct: number }) {
         {pct.toFixed(1)}%
       </span>
     </div>
+  );
+}
+
+type UserRow = StatsData["userList"][number];
+
+function UserTable({ users }: { users: UserRow[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <section className="space-y-4">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 text-lg font-serif hover:text-primary transition-colors"
+      >
+        <span className={`transition-transform ${expanded ? "rotate-90" : ""}`}>
+          ▶
+        </span>
+        用户明细（共 {users.length} 人）
+      </button>
+
+      {expanded && (
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-x-auto">
+          <table className="w-full text-sm whitespace-nowrap">
+            <thead>
+              <tr className="text-left text-muted-foreground border-b border-border">
+                <th className="px-4 py-3 font-medium">#</th>
+                <th className="px-4 py-3 font-medium">昵称</th>
+                <th className="px-4 py-3 font-medium">邮箱</th>
+                <th className="px-4 py-3 font-medium">性别</th>
+                <th className="px-4 py-3 font-medium">择偶</th>
+                <th className="px-4 py-3 font-medium">学历</th>
+                <th className="px-4 py-3 font-medium">院校</th>
+                <th className="px-4 py-3 font-medium">版本</th>
+                <th className="px-4 py-3 font-medium">状态</th>
+                <th className="px-4 py-3 font-medium">注册时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u, i) => (
+                <tr key={u.email} className="border-t border-border/50 hover:bg-muted/30">
+                  <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
+                  <td className="px-4 py-2.5 font-medium">{u.name || "-"}</td>
+                  <td className="px-4 py-2.5">{u.email}</td>
+                  <td className="px-4 py-2.5">{u.gender || "-"}</td>
+                  <td className="px-4 py-2.5">{u.datingPreference || "-"}</td>
+                  <td className="px-4 py-2.5">{u.education || "-"}</td>
+                  <td className="px-4 py-2.5">{u.schoolTier || "-"}</td>
+                  <td className="px-4 py-2.5">{u.surveyVersion || "-"}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex gap-1.5">
+                      {u.completed && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700">已完成</span>
+                      )}
+                      {u.optedIn && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700">已匹配</span>
+                      )}
+                      {u.emailVerified && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700">已验证</span>
+                      )}
+                      {!u.completed && !u.optedIn && !u.emailVerified && (
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-muted text-muted-foreground">未完成</span>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5 text-muted-foreground">
+                    {new Date(u.createdAt).toLocaleDateString("zh-CN")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }

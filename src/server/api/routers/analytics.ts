@@ -155,7 +155,7 @@ export const analyticsRouter = createTRPCRouter({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "无效的访问令牌" });
       }
 
-      const [responses, profiles, helicopterPilots] = await Promise.all([
+      const [responses, profiles, helicopterPilots, users] = await Promise.all([
         ctx.db.surveyResponse.findMany({
           where: { completed: true },
           select: { answers: true },
@@ -170,6 +170,26 @@ export const analyticsRouter = createTRPCRouter({
         }),
         ctx.db.helicopterPilot.findMany({
           select: { displayName: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
+        }),
+        ctx.db.user.findMany({
+          select: {
+            email: true,
+            name: true,
+            emailVerified: true,
+            createdAt: true,
+            profile: {
+              select: {
+                gender: true,
+                datingPreference: true,
+                education: true,
+                schoolTier: true,
+              },
+            },
+            surveyResponse: {
+              select: { completed: true, optedIn: true, answers: true },
+            },
+          },
           orderBy: { createdAt: "desc" },
         }),
       ]);
@@ -207,6 +227,29 @@ export const analyticsRouter = createTRPCRouter({
         };
       }
 
+      const userList = users.map((u) => {
+        let surveyVersion = "";
+        if (u.surveyResponse?.answers) {
+          try {
+            const parsed = JSON.parse(u.surveyResponse.answers);
+            surveyVersion = String(parsed._surveyVersion ?? "");
+          } catch {}
+        }
+        return {
+          email: u.email,
+          name: u.name ?? "",
+          emailVerified: u.emailVerified,
+          gender: u.profile?.gender ?? "",
+          datingPreference: u.profile?.datingPreference ?? "",
+          education: u.profile?.education ?? "",
+          schoolTier: u.profile?.schoolTier ?? "",
+          surveyVersion,
+          completed: u.surveyResponse?.completed ?? false,
+          optedIn: u.surveyResponse?.optedIn ?? false,
+          createdAt: u.createdAt.toISOString(),
+        };
+      });
+
       return {
         totalResponses: responses.length,
         totalProfiles: profiles.length,
@@ -216,6 +259,7 @@ export const analyticsRouter = createTRPCRouter({
           count: helicopterPilots.length,
           names: helicopterPilots.map((p) => p.displayName),
         },
+        userList,
       };
     }),
 });
