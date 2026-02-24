@@ -147,13 +147,15 @@ export const surveyRouter = createTRPCRouter({
         process.env.BETTER_AUTH_URL || "http://localhost:3000";
       const verifyUrl = `${baseUrl}/api/verify-email?token=${token}`;
 
-      sendConfirmationEmail({
-        toEmail: input.email,
-        displayName: input.displayName,
-        verifyUrl,
-      }).catch((err) => {
+      try {
+        await sendConfirmationEmail({
+          toEmail: input.email,
+          displayName: input.displayName,
+          verifyUrl,
+        });
+      } catch (err) {
         console.error("[sendConfirmationEmail] failed:", err);
-      });
+      }
 
       return { success: true, userId: user.id };
     }),
