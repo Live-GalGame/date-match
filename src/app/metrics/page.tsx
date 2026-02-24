@@ -1,16 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { trpc } from "@/lib/trpc";
+
+const TOKEN_KEY = "metrics_token";
 
 export default function MetricsPage() {
   const [token, setToken] = useState("");
-  const [submittedToken, setSubmittedToken] = useState("");
+  const [submittedToken, setSubmittedToken] = useState(() => {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem(TOKEN_KEY) ?? "";
+    }
+    return "";
+  });
 
   const { data, isLoading, error } = trpc.analytics.getStats.useQuery(
     { token: submittedToken },
     { enabled: submittedToken.length > 0, retry: false },
   );
+
+  useEffect(() => {
+    if (submittedToken) sessionStorage.setItem(TOKEN_KEY, submittedToken);
+  }, [submittedToken]);
 
   if (!submittedToken) {
     return <TokenGate token={token} setToken={setToken} onSubmit={() => setSubmittedToken(token)} />;
@@ -539,6 +551,7 @@ type UserRow = StatsData["userList"][number];
 
 function UserTable({ users }: { users: UserRow[] }) {
   const [expanded, setExpanded] = useState(false);
+  const router = useRouter();
 
   return (
     <section className="space-y-4">
@@ -574,7 +587,14 @@ function UserTable({ users }: { users: UserRow[] }) {
               {users.map((u, i) => (
                 <tr key={u.email} className="border-t border-border/50 hover:bg-muted/30">
                   <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
-                  <td className="px-4 py-2.5 font-medium">{u.name || "-"}</td>
+                  <td className="px-4 py-2.5 font-medium">
+                    <button
+                      onClick={() => router.push(`/metrics/user?email=${encodeURIComponent(u.email)}`)}
+                      className="text-primary hover:underline underline-offset-2 cursor-pointer"
+                    >
+                      {u.name || u.email.split("@")[0]}
+                    </button>
+                  </td>
                   <td className="px-4 py-2.5">{u.email}</td>
                   <td className="px-4 py-2.5">{u.gender || "-"}</td>
                   <td className="px-4 py-2.5">{u.datingPreference || "-"}</td>

@@ -143,7 +143,119 @@ function countField(values: string[]): Record<string, number> {
   return counts;
 }
 
+function formatAnswer(q: SurveyQuestion, raw: unknown): string {
+  if (raw === undefined || raw === null || raw === "") return "(未作答)";
+
+  switch (q.type) {
+    case "slider":
+      return `${raw}${q.unit ?? ""}`;
+    case "single": {
+      const opt = q.options.find((o) => o.value === String(raw));
+      return opt ? opt.label : String(raw);
+    }
+    case "tags":
+      return Array.isArray(raw) ? raw.join("、") : String(raw);
+    case "ranking":
+      return Array.isArray(raw)
+        ? raw.map((item, i) => `${i + 1}. ${item}`).join("\n")
+        : String(raw);
+    case "open_text":
+      return String(raw);
+    default:
+      return String(raw);
+  }
+}
+
 export const analyticsRouter = createTRPCRouter({
+  getUserDetail: publicProcedure
+    .input(z.object({ token: z.string(), email: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const expectedToken =
+        process.env.METRICS_DASHBOARD_TOKEN?.trim() ??
+        process.env.BETTER_AUTH_SECRET?.trim() ??
+        "";
+      if (!expectedToken || input.token.trim() !== expectedToken) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "无效的访问令牌" });
+      }
+
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+        select: {
+          email: true,
+          name: true,
+          emailVerified: true,
+          referralCode: true,
+          createdAt: true,
+          profile: {
+            select: {
+              displayName: true,
+              gender: true,
+              datingPreference: true,
+              age: true,
+              school: true,
+              education: true,
+              schoolTier: true,
+            },
+          },
+          surveyResponse: {
+            select: { answers: true, completed: true, optedIn: true },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "用户不存在" });
+      }
+
+      let surveyVersion = "";
+      let parsedAnswers: Answers = {};
+      if (user.surveyResponse?.answers) {
+        try {
+          parsedAnswers = JSON.parse(user.surveyResponse.answers);
+          surveyVersion = String(parsedAnswers._surveyVersion ?? "v2");
+        } catch {}
+      }
+
+      const def = versionDefs[surveyVersion];
+      const sections = def
+        ? def.sections.map((section) => ({
+            title: section.title,
+            description: section.description,
+            questions: section.questions.map((q) => ({
+              id: q.id,
+              question: q.question,
+              type: q.type,
+              note: q.note ?? null,
+              rawAnswer: parsedAnswers[q.id] ?? null,
+              formattedAnswer: formatAnswer(q, parsedAnswers[q.id]),
+            })),
+          }))
+        : [];
+
+      return {
+        email: user.email,
+        name: user.name ?? "",
+        emailVerified: user.emailVerified,
+        referralCode: user.referralCode ?? "",
+        createdAt: user.createdAt.toISOString(),
+        profile: user.profile
+          ? {
+              displayName: user.profile.displayName,
+              gender: user.profile.gender,
+              datingPreference: user.profile.datingPreference,
+              age: user.profile.age,
+              school: user.profile.school,
+              education: user.profile.education,
+              schoolTier: user.profile.schoolTier,
+            }
+          : null,
+        surveyVersion,
+        completed: user.surveyResponse?.completed ?? false,
+        optedIn: user.surveyResponse?.optedIn ?? false,
+        sections,
+      };
+    }),
+
   getStats: publicProcedure
     .input(z.object({ token: z.string() }))
     .query(async ({ ctx, input }) => {
