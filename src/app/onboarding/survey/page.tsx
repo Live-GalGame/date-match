@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo, useEffect } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { trpc } from "@/lib/trpc";
@@ -103,6 +103,14 @@ const HELICOPTER_PHOTOS = [
 ];
 
 export default function SurveyPage() {
+  return (
+    <Suspense>
+      <SurveyPageInner />
+    </Suspense>
+  );
+}
+
+function SurveyPageInner() {
   const searchParams = useSearchParams();
   const [referralCode] = useState<string>(() => {
     const fromUrl = typeof window !== "undefined"

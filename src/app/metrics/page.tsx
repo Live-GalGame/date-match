@@ -124,6 +124,7 @@ type StatsData = {
     count: number;
     names: string[];
   };
+  referralStats: Record<string, { total: number; verified: number }>;
   userList: {
     email: string;
     name: string;
@@ -135,6 +136,7 @@ type StatsData = {
     surveyVersion: string;
     completed: boolean;
     optedIn: boolean;
+    referralCode: string;
     createdAt: string;
   }[];
 };
@@ -184,6 +186,11 @@ function Dashboard({ data }: { data: StatsData }) {
               ))}
             </div>
           </section>
+        )}
+
+        {/* Referral stats */}
+        {Object.keys(data.referralStats).length > 0 && (
+          <ReferralTable stats={data.referralStats} />
         )}
 
         {/* Profile distributions */}
@@ -466,6 +473,68 @@ function PercentBar({ pct }: { pct: number }) {
   );
 }
 
+function ReferralTable({
+  stats,
+}: {
+  stats: Record<string, { total: number; verified: number }>;
+}) {
+  const entries = Object.entries(stats).sort(([, a], [, b]) => b.total - a.total);
+  const totalReferred = entries.reduce((sum, [, s]) => sum + s.total, 0);
+  const totalVerified = entries.reduce((sum, [, s]) => sum + s.verified, 0);
+
+  return (
+    <section className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-serif">推广渠道</h2>
+        <span className="text-sm text-muted-foreground">
+          共 {totalReferred} 人通过推广码注册，{totalVerified} 人已验证
+        </span>
+      </div>
+      <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-muted-foreground border-b border-border">
+              <th className="px-5 py-3 font-medium">推广码</th>
+              <th className="px-3 py-3 font-medium text-center w-20">注册数</th>
+              <th className="px-3 py-3 font-medium text-center w-20">验证数</th>
+              <th className="px-5 py-3 font-medium w-48">转化率</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map(([code, s]) => {
+              const rate = s.total > 0 ? (s.verified / s.total) * 100 : 0;
+              return (
+                <tr key={code} className="border-t border-border/50">
+                  <td className="px-5 py-2.5">
+                    <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                      {code}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 text-center">{s.total}</td>
+                  <td className="px-3 py-2.5 text-center">{s.verified}</td>
+                  <td className="px-5 py-2.5">
+                    <PercentBar pct={rate} />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot>
+            <tr className="border-t border-border font-medium text-muted-foreground">
+              <td className="px-5 py-2">合计</td>
+              <td className="px-3 py-2 text-center">{totalReferred}</td>
+              <td className="px-3 py-2 text-center">{totalVerified}</td>
+              <td className="px-5 py-2">
+                <PercentBar pct={totalReferred > 0 ? (totalVerified / totalReferred) * 100 : 0} />
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 type UserRow = StatsData["userList"][number];
 
 function UserTable({ users }: { users: UserRow[] }) {
@@ -496,6 +565,7 @@ function UserTable({ users }: { users: UserRow[] }) {
                 <th className="px-4 py-3 font-medium">学历</th>
                 <th className="px-4 py-3 font-medium">院校</th>
                 <th className="px-4 py-3 font-medium">版本</th>
+                <th className="px-4 py-3 font-medium">来源</th>
                 <th className="px-4 py-3 font-medium">状态</th>
                 <th className="px-4 py-3 font-medium">注册时间</th>
               </tr>
@@ -511,6 +581,13 @@ function UserTable({ users }: { users: UserRow[] }) {
                   <td className="px-4 py-2.5">{u.education || "-"}</td>
                   <td className="px-4 py-2.5">{u.schoolTier || "-"}</td>
                   <td className="px-4 py-2.5">{u.surveyVersion || "-"}</td>
+                  <td className="px-4 py-2.5">
+                    {u.referralCode ? (
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700">
+                        {u.referralCode}
+                      </span>
+                    ) : "-"}
+                  </td>
                   <td className="px-4 py-2.5">
                     <div className="flex gap-1.5">
                       {u.completed && (
