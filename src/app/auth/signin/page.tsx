@@ -30,19 +30,22 @@ export default function SignInPage() {
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="max-w-md w-full text-center animate-fade-in">
           <div className="text-5xl mb-6">✉️</div>
-          <h1 className="text-3xl font-serif text-primary mb-4">Check your email</h1>
+          <h1 className="text-3xl font-serif text-primary mb-4">查看你的邮箱</h1>
           <p className="text-muted-foreground text-lg mb-2">
-            We sent a magic link to
+            我们已发送登录链接到
           </p>
           <p className="text-foreground font-medium text-lg mb-8">{email}</p>
           <p className="text-muted-foreground text-sm">
-            Click the link in the email to sign in. The link expires in 5 minutes.
+            点击邮件中的链接即可登录，链接 5 分钟内有效。
+          </p>
+          <p className="text-muted-foreground text-xs mt-4">
+            没收到？请检查垃圾邮件文件夹，部分邮箱可能需要 1-2 分钟送达。
           </p>
           <button
             onClick={() => setSent(false)}
-            className="mt-8 text-primary underline underline-offset-4 text-sm hover:text-accent transition-colors"
+            className="mt-6 text-primary underline underline-offset-4 text-sm hover:text-accent transition-colors"
           >
-            Use a different email
+            换一个邮箱
           </button>
         </div>
       </div>
@@ -56,16 +59,30 @@ export default function SignInPage() {
           <Link href="/" className="text-3xl font-serif text-primary hover:text-accent transition-colors">
             date match.
           </Link>
-          <h1 className="text-2xl font-serif mt-6 mb-2">Welcome</h1>
+          <h1 className="text-2xl font-serif mt-6 mb-2">登录</h1>
           <p className="text-muted-foreground">
-            Enter your email to get started
+            输入你提交问卷时使用的邮箱
+          </p>
+        </div>
+
+        <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700 rounded-xl px-4 py-3.5 mb-6">
+          <p className="text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+            <span className="font-semibold">第一次来？</span>{" "}
+            登录仅限已完成测试的用户。请先{" "}
+            <Link
+              href="/onboarding/survey"
+              className="font-bold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-200 transition-colors"
+            >
+              完成测试
+            </Link>
+            ，提交后即可进入匹配。
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2">
-              Email address
+              邮箱地址
             </label>
             <input
               id="email"
@@ -87,13 +104,22 @@ export default function SignInPage() {
             disabled={loading || !email}
             className="w-full py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Sending..." : "Continue with Email"}
+            {loading ? "发送中..." : "发送登录链接"}
           </button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          We&apos;ll send you a magic link to sign in — no password needed.
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          我们会发送一封含有登录链接的邮件，无需密码。
         </p>
+
+        <div className="text-center mt-4">
+          <Link
+            href="/onboarding/survey"
+            className="text-primary text-sm font-medium hover:text-accent transition-colors"
+          >
+            还没做过测试？去填写问卷 →
+          </Link>
+        </div>
       </div>
     </div>
   );
