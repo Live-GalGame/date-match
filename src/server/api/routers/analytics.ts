@@ -216,21 +216,23 @@ export const analyticsRouter = createTRPCRouter({
         } catch {}
       }
 
-      const def = versionDefs[surveyVersion];
-      const sections = def
-        ? def.sections.map((section) => ({
-            title: section.title,
-            description: section.description,
-            questions: section.questions.map((q) => ({
-              id: q.id,
-              question: q.question,
-              type: q.type,
-              note: q.note ?? null,
-              rawAnswer: parsedAnswers[q.id] ?? null,
-              formattedAnswer: formatAnswer(q, parsedAnswers[q.id]),
-            })),
-          }))
-        : [];
+      const versionParts = surveyVersion.split("+").filter((v) => v in versionDefs);
+      const sections = versionParts.flatMap((vid) => {
+        const def = versionDefs[vid]!;
+        return def.sections.map((section) => ({
+          title: vid !== versionParts[0] ? section.title : `${section.title}`,
+          description: section.description,
+          versionId: vid,
+          questions: section.questions.map((q) => ({
+            id: q.id,
+            question: q.question,
+            type: q.type,
+            note: q.note ?? null,
+            rawAnswer: parsedAnswers[q.id] ?? null,
+            formattedAnswer: formatAnswer(q, parsedAnswers[q.id]),
+          })),
+        }));
+      });
 
       return {
         email: user.email,
@@ -320,8 +322,12 @@ export const analyticsRouter = createTRPCRouter({
       for (const r of responses) {
         const parsed: Answers = JSON.parse(r.answers);
         const ver = String(parsed._surveyVersion ?? "v2");
-        if (!buckets[ver]) buckets[ver] = [];
-        buckets[ver]!.push(parsed);
+        const parts = ver.split("+");
+        for (const part of parts) {
+          if (!(part in versionDefs)) continue;
+          if (!buckets[part]) buckets[part] = [];
+          buckets[part]!.push(parsed);
+        }
       }
 
       const versionStats: Record<

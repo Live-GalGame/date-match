@@ -134,13 +134,20 @@ function UserDetailContent() {
             该用户尚未提交问卷
           </section>
         ) : (
-          data.sections.map((section) => (
+          data.sections.map((section, idx) => (
             <section
-              key={section.title}
+              key={`${section.versionId}-${section.title}`}
               className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden"
             >
               <div className="px-6 py-4 border-b border-border">
-                <h2 className="text-lg font-serif">{section.title}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-serif">{section.title}</h2>
+                  {data.surveyVersion.includes("+") && (
+                    <span className="px-2 py-0.5 rounded text-xs font-medium bg-muted text-muted-foreground">
+                      {section.versionId === "v3-lite" ? "快速版" : "深度版"}
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   {section.description}
                 </p>
