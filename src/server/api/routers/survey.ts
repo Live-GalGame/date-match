@@ -12,10 +12,19 @@ const FAKE_HELICOPTER_NAMES = [
 ];
 
 export const surveyRouter = createTRPCRouter({
+  registerHelicopterPilot: publicProcedure
+    .input(z.object({ displayName: z.string().min(1).max(50) }))
+    .mutation(async ({ ctx, input }) => {
+      const pilot = await ctx.db.helicopterPilot.create({
+        data: { displayName: input.displayName.trim() },
+      });
+      return { id: pilot.id };
+    }),
+
   getHelicopterPilots: publicProcedure.query(async ({ ctx }) => {
-    const pilots = await ctx.db.profile.findMany({
-      where: { gender: "武装直升机" },
+    const pilots = await ctx.db.helicopterPilot.findMany({
       select: { displayName: true },
+      orderBy: { createdAt: "desc" },
     });
     const realNames = pilots.map((p) => p.displayName);
     if (realNames.length >= 10) {

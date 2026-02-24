@@ -119,6 +119,10 @@ type StatsData = {
       }[];
     }
   >;
+  helicopterPilots: {
+    count: number;
+    names: string[];
+  };
 };
 
 function Dashboard({ data }: { data: StatsData }) {
@@ -147,6 +151,26 @@ function Dashboard({ data }: { data: StatsData }) {
             />
           ))}
         </div>
+
+        {/* Helicopter pilots */}
+        {data.helicopterPilots.count > 0 && (
+          <section className="bg-card rounded-2xl border border-border shadow-sm p-5 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-serif">武装直升机飞行员</h2>
+              <span className="text-2xl font-serif text-primary">{data.helicopterPilots.count}</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {data.helicopterPilots.names.map((name, i) => (
+                <span
+                  key={i}
+                  className="px-3 py-1.5 rounded-full text-sm bg-primary/10 text-primary font-medium"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Profile distributions */}
         <section className="space-y-6">

@@ -145,11 +145,17 @@ export const analyticsRouter = createTRPCRouter({
   getStats: publicProcedure
     .input(z.object({ token: z.string() }))
     .query(async ({ ctx, input }) => {
-      if (input.token !== process.env.BETTER_AUTH_SECRET) {
+      const expectedToken =
+        process.env.METRICS_DASHBOARD_TOKEN?.trim() ??
+        process.env.BETTER_AUTH_SECRET?.trim() ??
+        "";
+      const incomingToken = input.token.trim();
+
+      if (!expectedToken || incomingToken !== expectedToken) {
         throw new TRPCError({ code: "UNAUTHORIZED", message: "无效的访问令牌" });
       }
 
-      const [responses, profiles] = await Promise.all([
+      const [responses, profiles, helicopterPilots] = await Promise.all([
         ctx.db.surveyResponse.findMany({
           where: { completed: true },
           select: { answers: true },
@@ -161,6 +167,10 @@ export const analyticsRouter = createTRPCRouter({
             education: true,
             schoolTier: true,
           },
+        }),
+        ctx.db.helicopterPilot.findMany({
+          select: { displayName: true, createdAt: true },
+          orderBy: { createdAt: "desc" },
         }),
       ]);
 
@@ -202,6 +212,10 @@ export const analyticsRouter = createTRPCRouter({
         totalProfiles: profiles.length,
         profileStats,
         versionStats,
+        helicopterPilots: {
+          count: helicopterPilots.length,
+          names: helicopterPilots.map((p) => p.displayName),
+        },
       };
     }),
 });

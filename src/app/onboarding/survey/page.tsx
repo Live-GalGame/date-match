@@ -180,6 +180,8 @@ export default function SurveyPage() {
     enabled: heliPhase === "result",
   });
 
+  const registerHeliMutation = trpc.survey.registerHelicopterPilot.useMutation();
+
   const floatingHelicopters = useMemo(
     () =>
       Array.from({ length: 24 }, (_, i) => ({
@@ -531,7 +533,12 @@ export default function SurveyPage() {
 
             <button
               type="button"
-              onClick={() => setHeliPhase(null)}
+              onClick={() => {
+                if (displayName.trim()) {
+                  registerHeliMutation.mutate({ displayName: displayName.trim() });
+                }
+                setHeliPhase(null);
+              }}
               className="w-full py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors"
             >
               太酷了！继续填写 →

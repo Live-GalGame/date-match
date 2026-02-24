@@ -117,6 +117,12 @@ model SurveyResponse {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model HelicopterPilot {
+  id          String   @id @default(cuid())
+  displayName String
+  createdAt   DateTime @default(now())
+}
+
 model Match {
   id              String   @id @default(cuid())
   user1Id         String
