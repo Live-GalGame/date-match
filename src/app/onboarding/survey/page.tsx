@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useMemo } from "react";
+import { useState, useCallback, useRef, useMemo, useEffect } from "react";
 import Image from "next/image";
 import { trpc } from "@/lib/trpc";
 import { getSurveyVersion } from "@/lib/survey-questions";
@@ -100,6 +100,57 @@ export default function SurveyPage() {
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLiteData = Object.keys(liteAnswers).length > 0;
 
+  // Load saved state on mount
+  useEffect(() => {
+    try {
+      const savedState = localStorage.getItem("surveyState");
+      if (savedState) {
+        const parsed = JSON.parse(savedState);
+        if (parsed.answers) setAnswers(parsed.answers);
+        if (parsed.liteAnswers) setLiteAnswers(parsed.liteAnswers);
+        if (parsed.selectedVersion) setSelectedVersion(parsed.selectedVersion);
+        if (parsed.currentIndex !== undefined) setCurrentIndex(parsed.currentIndex);
+        if (parsed.gender) setGender(parsed.gender);
+        if (parsed.datingPreference) setDatingPreference(parsed.datingPreference);
+        if (parsed.genderDone !== undefined) setGenderDone(parsed.genderDone);
+        if (parsed.email) setEmail(parsed.email);
+        if (parsed.displayName) setDisplayName(parsed.displayName);
+        if (parsed.education) setEducation(parsed.education);
+        if (parsed.schoolTier) setSchoolTier(parsed.schoolTier);
+      }
+    } catch (e) {
+      console.error("Failed to load survey state:", e);
+    }
+  }, []);
+
+  // Save state on change
+  useEffect(() => {
+    // Don't save if submitted
+    if (submitted) {
+      localStorage.removeItem("surveyState");
+      return;
+    }
+
+    try {
+      const stateToSave = {
+        answers,
+        liteAnswers,
+        selectedVersion,
+        currentIndex,
+        gender,
+        datingPreference,
+        genderDone,
+        email,
+        displayName,
+        education,
+        schoolTier,
+      };
+      localStorage.setItem("surveyState", JSON.stringify(stateToSave));
+    } catch (e) {
+      console.error("Failed to save survey state:", e);
+    }
+  }, [answers, liteAnswers, selectedVersion, currentIndex, gender, datingPreference, genderDone, email, displayName, education, schoolTier, submitted]);
+
   const helicopterQuery = trpc.survey.getHelicopterPilots.useQuery(undefined, {
     enabled: heliPhase === "result",
   });
@@ -119,6 +170,13 @@ export default function SurveyPage() {
   const mutation = trpc.survey.submitPublic.useMutation({
     onSuccess: () => setSubmitted(true),
   });
+
+  const resendMutation = trpc.survey.resendConfirmation.useMutation();
+
+  const handleResend = () => {
+    if (!email) return;
+    resendMutation.mutate({ email });
+  };
 
   const version = selectedVersion ? getSurveyVersion(selectedVersion) : null;
   const sections = version?.sections ?? [];
@@ -729,9 +787,18 @@ export default function SurveyPage() {
                 <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
                   只有验证邮箱后，才会进入每周匹配！
                 </p>
-                <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">
-                  没收到？请检查垃圾邮件文件夹，链接 24 小时内有效
-                </p>
+                <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
+                  <span>没收到？请检查垃圾邮件文件夹，链接 24 小时内有效</span>
+                  <button 
+                    onClick={handleResend}
+                    disabled={resendMutation.isPending || resendMutation.isSuccess}
+                    className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {resendMutation.isPending ? "发送中..." : 
+                     resendMutation.isSuccess ? "已重新发送！" : 
+                     resendMutation.isError ? "发送失败，请重试" : "没收到？重新发送"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -800,9 +867,18 @@ export default function SurveyPage() {
               <p className="text-sm text-amber-700 dark:text-amber-400 font-semibold mt-2">
                 只有验证邮箱后，才会进入每周匹配！
               </p>
-              <p className="text-xs text-amber-600 dark:text-amber-500 mt-2">
-                没收到？请检查垃圾邮件文件夹，链接 24 小时内有效
-              </p>
+              <div className="text-xs text-amber-600 dark:text-amber-500 mt-3 flex flex-col gap-2">
+                <span>没收到？请检查垃圾邮件文件夹，链接 24 小时内有效</span>
+                <button 
+                  onClick={handleResend}
+                  disabled={resendMutation.isPending || resendMutation.isSuccess}
+                  className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resendMutation.isPending ? "发送中..." : 
+                   resendMutation.isSuccess ? "已重新发送！" : 
+                   resendMutation.isError ? "发送失败，请重试" : "没收到？重新发送"}
+                </button>
+              </div>
             </div>
           </div>
         </div>

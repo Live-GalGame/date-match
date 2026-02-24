@@ -158,6 +158,41 @@ export const surveyRouter = createTRPCRouter({
       return { success: true, userId: user.id };
     }),
 
+  resendConfirmation: publicProcedure
+    .input(z.object({ email: z.string().email() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUnique({
+        where: { email: input.email },
+        select: { id: true, name: true },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      const token = randomUUID();
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+      await ctx.db.verification.create({
+        data: {
+          identifier: input.email,
+          value: token,
+          expiresAt,
+        },
+      });
+
+      const baseUrl = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+      const verifyUrl = `${baseUrl}/api/verify-email?token=${token}`;
+
+      await sendConfirmationEmail({
+        toEmail: input.email,
+        displayName: user.name || "User",
+        verifyUrl,
+      });
+
+      return { success: true };
+    }),
+
   optIn: protectedProcedure.mutation(async ({ ctx }) => {
     return ctx.db.surveyResponse.update({
       where: { userId: ctx.user.id },
