@@ -201,6 +201,7 @@ function SurveyPageInner() {
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLiteData = Object.keys(liteAnswers).length > 0;
   const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
   const [posterScale, setPosterScale] = useState(0.45);
   const posterRef = useRef<HTMLDivElement>(null);
   const posterWrapperRef = useRef<HTMLDivElement>(null);
@@ -226,10 +227,16 @@ function SurveyPageInner() {
         backgroundColor: "#fdf6f0", // matches --background
       });
       const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = `date-match-report-${displayName || "user"}.png`;
-      link.href = dataUrl;
-      link.click();
+      setGeneratedImage(dataUrl);
+      
+      // Attempt automatic download for non-WeChat browsers
+      const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
+      if (!isWeChat) {
+        const link = document.createElement("a");
+        link.download = `date-match-report-${displayName || "user"}.png`;
+        link.href = dataUrl;
+        link.click();
+      }
     } catch (err) {
       console.error("生成海报失败", err);
       alert("生成海报失败，请稍后重试");
@@ -1070,9 +1077,9 @@ function SurveyPageInner() {
 
         {/* Poster Preview */}
         <div ref={posterWrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
-          <div className="relative w-full" style={{ paddingBottom: "177.75%" }}>
-            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1422px", transform: `scale(${posterScale})` }}>
-              <div ref={posterRef} className="w-[800px] h-[1422px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
+          <div className="relative w-full" style={{ paddingBottom: "200%" }}>
+            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1600px", transform: `scale(${posterScale})` }}>
+              <div ref={posterRef} className="w-[800px] h-[1600px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
                 <div className="pt-20 px-16 text-center">
                   <div style={{ color: "#8b225280", fontSize: "24px", fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.2em", marginBottom: "16px" }}>DATE-MATCH</div>
                   <h1 style={{ fontSize: "56px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", lineHeight: 1.2 }}>
@@ -1174,6 +1181,26 @@ function SurveyPageInner() {
             </li>
           </ul>
         </div>
+
+        {/* Generated Image Overlay */}
+        {generatedImage && (
+          <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in">
+            <div className="text-white/80 mb-4 flex flex-col items-center animate-bounce">
+              <span className="text-3xl mb-2">👇</span>
+              <p className="text-lg font-medium">长按下方图片保存到手机</p>
+            </div>
+            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={generatedImage} alt="专属海报" className="w-full h-auto object-cover" />
+            </div>
+            <button
+              onClick={() => setGeneratedImage(null)}
+              className="mt-8 px-6 py-2.5 rounded-full bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
+            >
+              关闭
+            </button>
+          </div>
+        )}
       </div>
       );
     }
@@ -1303,9 +1330,9 @@ function SurveyPageInner() {
 
         {/* Poster Preview (Deep) */}
         <div ref={posterWrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
-          <div className="relative w-full" style={{ paddingBottom: "177.75%" }}>
-            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1422px", transform: `scale(${posterScale})` }}>
-              <div ref={posterRef} className="w-[800px] h-[1422px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
+          <div className="relative w-full" style={{ paddingBottom: "200%" }}>
+            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1600px", transform: `scale(${posterScale})` }}>
+              <div ref={posterRef} className="w-[800px] h-[1600px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
                 <div className="pt-20 px-16 text-center">
                   <div style={{ color: "#8b225280", fontSize: "24px", fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.2em", marginBottom: "16px" }}>DATE-MATCH</div>
                   <h1 style={{ fontSize: "56px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", lineHeight: 1.2 }}>
@@ -1393,6 +1420,26 @@ function SurveyPageInner() {
             </li>
           </ul>
         </div>
+
+        {/* Generated Image Overlay */}
+        {generatedImage && (
+          <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in">
+            <div className="text-white/80 mb-4 flex flex-col items-center animate-bounce">
+              <span className="text-3xl mb-2">👇</span>
+              <p className="text-lg font-medium">长按下方图片保存到手机</p>
+            </div>
+            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={generatedImage} alt="专属海报" className="w-full h-auto object-cover" />
+            </div>
+            <button
+              onClick={() => setGeneratedImage(null)}
+              className="mt-8 px-6 py-2.5 rounded-full bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
+            >
+              关闭
+            </button>
+          </div>
+        )}
       </div>
     );
   }
