@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { QRCodeSVG } from "qrcode.react";
-import html2canvas from "html2canvas";
+import { domToPng } from "modern-screenshot";
 import { trpc } from "@/lib/trpc";
 import { getSurveyVersion } from "@/lib/survey-questions";
 import type { SurveyQuestion, SingleQuestion } from "@/lib/survey-versions/types";
@@ -18,6 +18,92 @@ import { EmojiCardSelect } from "@/components/survey/emoji-card-select";
 import { cn } from "@/lib/utils";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+
+const POSTER_FONT = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif";
+const POSTER_BARS = [
+  { left: "独立自主", right: "深度融合", pct: 65, label: "互动模式更偏向「组队解决」" },
+  { left: "情感主导", right: "现实稳健", pct: 40, label: "现实坐标更偏向「情感连接」" },
+  { left: "稳步平航", right: "战术激进", pct: 80, label: "行动力爆表" },
+];
+
+function PosterPreview({ wrapperRef, posterRef, posterScale, archetype, displayName, shareUrl }: {
+  wrapperRef: React.RefObject<HTMLDivElement | null>;
+  posterRef: React.RefObject<HTMLDivElement | null>;
+  posterScale: number;
+  archetype: string;
+  displayName: string;
+  shareUrl: string;
+}) {
+  return (
+    <div ref={wrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
+      <div className="relative w-full" style={{ paddingBottom: "200%" }}>
+        <div className="absolute inset-0 origin-top-left" style={{ width: 400, height: 800, transform: `scale(${posterScale})` }}>
+          <div ref={posterRef} style={{ width: 400, height: 800, background: "#fdf6f0", color: "#2d1b14", fontFamily: POSTER_FONT, display: "flex", flexDirection: "column" }}>
+            {/* Header */}
+            <div style={{ padding: "36px 32px 0", textAlign: "center" }}>
+              <div style={{ color: "#8b225280", fontSize: 11, letterSpacing: "0.25em", marginBottom: 8, fontWeight: 500 }}>DATE-MATCH · 关系基因报告</div>
+              <div style={{ fontSize: 28, fontWeight: 800, lineHeight: 1.3 }}>寻找与我<br />灵魂共振的人</div>
+            </div>
+            {/* Avatar */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "28px 0 20px" }}>
+              <div style={{ width: 100, height: 100, borderRadius: "50%", background: "linear-gradient(135deg, #f5ebe3 0%, #e8d5c8 100%)", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16, border: "3px solid #8b225220", position: "relative" }}>
+                <div style={{ width: 120, height: 120, borderRadius: "50%", border: "2px solid #8b225015", position: "absolute", top: -13, left: -13 }} />
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="#8b2252" opacity="0.6" /></svg>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 800, color: "#8b2252", marginBottom: 4 }}>{archetype}</div>
+              <div style={{ fontSize: 14, color: "#6b5449" }}>{displayName || "神秘飞行员"}</div>
+            </div>
+            {/* Bars */}
+            <div style={{ padding: "0 28px", flex: 1 }}>
+              <div style={{ background: "#ffffff", borderRadius: 16, padding: "20px 20px", border: "1px solid #e8d5c8" }}>
+                {POSTER_BARS.map((bar, i) => (
+                  <div key={i} style={{ marginBottom: i < POSTER_BARS.length - 1 ? 20 : 0 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, marginBottom: 8, color: "#2d1b14" }}>
+                      <span>{bar.left}</span><span>{bar.right}</span>
+                    </div>
+                    <div style={{ height: 10, background: "#f5ebe3", borderRadius: 5, position: "relative" }}>
+                      <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${bar.pct}%`, background: "linear-gradient(90deg, #c4536a40 0%, #8b225060 100%)", borderRadius: 5 }} />
+                      <div style={{ position: "absolute", left: `${bar.pct}%`, top: "50%", transform: "translate(-50%, -50%)", width: 16, height: 16, background: "#8b2252", borderRadius: "50%", boxShadow: "0 1px 4px rgba(139,34,82,0.35)" }} />
+                    </div>
+                    <div style={{ textAlign: "center", color: "#8b2252", fontWeight: 500, fontSize: 11, marginTop: 6 }}>{bar.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Footer */}
+            <div style={{ background: "linear-gradient(135deg, #8b2252 0%, #5a2d3e 100%)", color: "#fdf6f0", padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
+              <div style={{ maxWidth: 200 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>了解你的关系基因</div>
+                <div style={{ fontSize: 11, color: "#fdf6f0bb", lineHeight: 1.5 }}>扫码参与测试，看看<br />我们到底有多契合？</div>
+              </div>
+              <div style={{ width: 80, height: 80, background: "#ffffff", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, padding: 6 }}>
+                <QRCodeSVG value={shareUrl} size={68} level="H" bgColor="#ffffff" fgColor="#8b2252" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PosterImageOverlay({ src, onClose }: { src: string | null; onClose: () => void }) {
+  if (!src) return null;
+  return (
+    <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in">
+      <div className="text-white/80 mb-4 flex flex-col items-center">
+        <p className="text-lg font-medium">长按下方图片保存到手机</p>
+      </div>
+      <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="专属海报" className="w-full h-auto" />
+      </div>
+      <button onClick={onClose} className="mt-8 px-6 py-2.5 rounded-full bg-white/10 text-white font-medium hover:bg-white/20 transition-colors">
+        关闭
+      </button>
+    </div>
+  );
+}
 
 type Answers = Record<string, number | string | string[]>;
 type VersionId = "v3-lite" | "v2";
@@ -210,7 +296,7 @@ function SurveyPageInner() {
     function calcScale() {
       if (!posterWrapperRef.current) return;
       const containerWidth = posterWrapperRef.current.getBoundingClientRect().width;
-      setPosterScale(containerWidth / 800);
+      setPosterScale(containerWidth / 400);
     }
     calcScale();
     window.addEventListener("resize", calcScale);
@@ -221,15 +307,12 @@ function SurveyPageInner() {
     if (!posterRef.current) return;
     try {
       setIsGeneratingPoster(true);
-      const canvas = await html2canvas(posterRef.current, {
+      const dataUrl = await domToPng(posterRef.current, {
         scale: 2,
-        useCORS: true,
-        backgroundColor: "#fdf6f0", // matches --background
+        backgroundColor: "#fdf6f0",
       });
-      const dataUrl = canvas.toDataURL("image/png");
       setGeneratedImage(dataUrl);
-      
-      // Attempt automatic download for non-WeChat browsers
+
       const isWeChat = /MicroMessenger/i.test(navigator.userAgent);
       if (!isWeChat) {
         const link = document.createElement("a");
@@ -1076,70 +1159,14 @@ function SurveyPageInner() {
           )}
 
         {/* Poster Preview */}
-        <div ref={posterWrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
-          <div className="relative w-full" style={{ paddingBottom: "200%" }}>
-            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1600px", transform: `scale(${posterScale})` }}>
-              <div ref={posterRef} className="w-[800px] h-[1600px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
-                <div className="pt-20 px-16 text-center">
-                  <div style={{ color: "#8b225280", fontSize: "24px", fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.2em", marginBottom: "16px" }}>DATE-MATCH</div>
-                  <h1 style={{ fontSize: "56px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", lineHeight: 1.2 }}>
-                    寻找与我<br />灵魂共振的人
-                  </h1>
-                </div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", margin: "48px 0" }}>
-                  <div style={{ width: "256px", height: "256px", background: "#8b225218", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "32px", position: "relative" }}>
-                    <span style={{ fontSize: "128px", lineHeight: 1 }}>✨</span>
-                    <div style={{ position: "absolute", inset: "-16px", border: "4px solid #8b225030", borderRadius: "50%" }} />
-                  </div>
-                  <h2 style={{ fontSize: "40px", fontWeight: "bold", color: "#8b2252", marginBottom: "12px" }}>
-                    {hasLiteData ? "多维探索者" : "坚定领航员"}
-                  </h2>
-                  <p style={{ fontSize: "24px", color: "#6b5449" }}>
-                    {displayName || "神秘飞行员"}
-                  </p>
-                </div>
-                <div style={{ padding: "0 64px", marginBottom: "48px" }}>
-                  <div style={{ background: "#ffffff", borderRadius: "24px", padding: "40px", border: "2px solid #e8d5c8", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)" }}>
-                    {[
-                      { left: "独立自主", right: "深度融合", pct: 65, label: "互动模式更偏向「组队解决」" },
-                      { left: "情感主导", right: "现实稳健", pct: 40, label: "现实坐标更偏向「情感连接」" },
-                      { left: "稳步平航", right: "战术激进", pct: 80, label: "行动力爆表" },
-                    ].map((bar, i) => (
-                      <div key={i} style={{ marginBottom: i < 2 ? "32px" : 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "20px", fontWeight: 500, marginBottom: "12px" }}>
-                          <span>{bar.left}</span>
-                          <span>{bar.right}</span>
-                        </div>
-                        <div style={{ height: "24px", background: "#f5ebe3", borderRadius: "12px", position: "relative", overflow: "visible" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${bar.pct}%`, background: "#8b225060", borderRadius: "12px" }} />
-                          <div style={{ position: "absolute", left: `${bar.pct}%`, top: "50%", transform: "translate(-50%, -50%)", width: "32px", height: "32px", background: "#8b2252", borderRadius: "50%", boxShadow: "0 2px 8px rgba(139,34,82,0.3)" }} />
-                        </div>
-                        <p style={{ textAlign: "center", color: "#8b2252cc", fontWeight: 500, fontSize: "18px", marginTop: "8px" }}>{bar.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ marginTop: "auto", background: "#8b2252", color: "#fdf6f0", padding: "48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ maxWidth: "400px" }}>
-                    <h3 style={{ fontSize: "28px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", marginBottom: "12px" }}>了解你的关系基因</h3>
-                    <p style={{ color: "#fdf6f0cc", fontSize: "20px", lineHeight: 1.6 }}>
-                      扫码参与测试，看看<br />我们到底有多契合？
-                    </p>
-                  </div>
-                  <div style={{ background: "#ffffff", padding: "16px", borderRadius: "16px", flexShrink: 0 }}>
-                    <QRCodeSVG
-                      value={shareUrl}
-                      size={140}
-                      level="H"
-                      bgColor="#ffffff"
-                      fgColor="#8b2252"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PosterPreview
+          wrapperRef={posterWrapperRef}
+          posterRef={posterRef}
+          posterScale={posterScale}
+          archetype={hasLiteData ? "多维探索者" : "坚定领航员"}
+          displayName={displayName}
+          shareUrl={shareUrl}
+        />
 
         <button
           type="button"
@@ -1182,25 +1209,7 @@ function SurveyPageInner() {
           </ul>
         </div>
 
-        {/* Generated Image Overlay */}
-        {generatedImage && (
-          <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in">
-            <div className="text-white/80 mb-4 flex flex-col items-center animate-bounce">
-              <span className="text-3xl mb-2">👇</span>
-              <p className="text-lg font-medium">长按下方图片保存到手机</p>
-            </div>
-            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={generatedImage} alt="专属海报" className="w-full h-auto object-cover" />
-            </div>
-            <button
-              onClick={() => setGeneratedImage(null)}
-              className="mt-8 px-6 py-2.5 rounded-full bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
-            >
-              关闭
-            </button>
-          </div>
-        )}
+        <PosterImageOverlay src={generatedImage} onClose={() => setGeneratedImage(null)} />
       </div>
       );
     }
@@ -1329,70 +1338,14 @@ function SurveyPageInner() {
         )}
 
         {/* Poster Preview (Deep) */}
-        <div ref={posterWrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
-          <div className="relative w-full" style={{ paddingBottom: "200%" }}>
-            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1600px", transform: `scale(${posterScale})` }}>
-              <div ref={posterRef} className="w-[800px] h-[1600px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
-                <div className="pt-20 px-16 text-center">
-                  <div style={{ color: "#8b225280", fontSize: "24px", fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.2em", marginBottom: "16px" }}>DATE-MATCH</div>
-                  <h1 style={{ fontSize: "56px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", lineHeight: 1.2 }}>
-                    寻找与我<br />灵魂共振的人
-                  </h1>
-                </div>
-                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", margin: "48px 0" }}>
-                  <div style={{ width: "256px", height: "256px", background: "#8b225218", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "32px", position: "relative" }}>
-                    <span style={{ fontSize: "128px", lineHeight: 1 }}>✨</span>
-                    <div style={{ position: "absolute", inset: "-16px", border: "4px solid #8b225030", borderRadius: "50%" }} />
-                  </div>
-                  <h2 style={{ fontSize: "40px", fontWeight: "bold", color: "#8b2252", marginBottom: "12px" }}>
-                    {hasLiteData ? "多维探索者" : "坚定领航员"}
-                  </h2>
-                  <p style={{ fontSize: "24px", color: "#6b5449" }}>
-                    {displayName || "神秘飞行员"}
-                  </p>
-                </div>
-                <div style={{ padding: "0 64px", marginBottom: "48px" }}>
-                  <div style={{ background: "#ffffff", borderRadius: "24px", padding: "40px", border: "2px solid #e8d5c8", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)" }}>
-                    {[
-                      { left: "独立自主", right: "深度融合", pct: 65, label: "互动模式更偏向「组队解决」" },
-                      { left: "情感主导", right: "现实稳健", pct: 40, label: "现实坐标更偏向「情感连接」" },
-                      { left: "稳步平航", right: "战术激进", pct: 80, label: "行动力爆表" },
-                    ].map((bar, i) => (
-                      <div key={i} style={{ marginBottom: i < 2 ? "32px" : 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "20px", fontWeight: 500, marginBottom: "12px" }}>
-                          <span>{bar.left}</span>
-                          <span>{bar.right}</span>
-                        </div>
-                        <div style={{ height: "24px", background: "#f5ebe3", borderRadius: "12px", position: "relative", overflow: "visible" }}>
-                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${bar.pct}%`, background: "#8b225060", borderRadius: "12px" }} />
-                          <div style={{ position: "absolute", left: `${bar.pct}%`, top: "50%", transform: "translate(-50%, -50%)", width: "32px", height: "32px", background: "#8b2252", borderRadius: "50%", boxShadow: "0 2px 8px rgba(139,34,82,0.3)" }} />
-                        </div>
-                        <p style={{ textAlign: "center", color: "#8b2252cc", fontWeight: 500, fontSize: "18px", marginTop: "8px" }}>{bar.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ marginTop: "auto", background: "#8b2252", color: "#fdf6f0", padding: "48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ maxWidth: "400px" }}>
-                    <h3 style={{ fontSize: "28px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", marginBottom: "12px" }}>了解你的关系基因</h3>
-                    <p style={{ color: "#fdf6f0cc", fontSize: "20px", lineHeight: 1.6 }}>
-                      扫码参与测试，看看<br />我们到底有多契合？
-                    </p>
-                  </div>
-                  <div style={{ background: "#ffffff", padding: "16px", borderRadius: "16px", flexShrink: 0 }}>
-                    <QRCodeSVG
-                      value={shareUrl}
-                      size={140}
-                      level="H"
-                      bgColor="#ffffff"
-                      fgColor="#8b2252"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PosterPreview
+          wrapperRef={posterWrapperRef}
+          posterRef={posterRef}
+          posterScale={posterScale}
+          archetype={hasLiteData ? "多维探索者" : "坚定领航员"}
+          displayName={displayName}
+          shareUrl={shareUrl}
+        />
 
         <button
           type="button"
@@ -1421,25 +1374,7 @@ function SurveyPageInner() {
           </ul>
         </div>
 
-        {/* Generated Image Overlay */}
-        {generatedImage && (
-          <div className="fixed inset-0 z-[200] bg-black/90 flex flex-col items-center justify-center p-6 animate-fade-in">
-            <div className="text-white/80 mb-4 flex flex-col items-center animate-bounce">
-              <span className="text-3xl mb-2">👇</span>
-              <p className="text-lg font-medium">长按下方图片保存到手机</p>
-            </div>
-            <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={generatedImage} alt="专属海报" className="w-full h-auto object-cover" />
-            </div>
-            <button
-              onClick={() => setGeneratedImage(null)}
-              className="mt-8 px-6 py-2.5 rounded-full bg-white/10 text-white font-medium hover:bg-white/20 transition-colors"
-            >
-              关闭
-            </button>
-          </div>
-        )}
+        <PosterImageOverlay src={generatedImage} onClose={() => setGeneratedImage(null)} />
       </div>
     );
   }
