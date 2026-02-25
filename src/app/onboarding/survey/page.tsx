@@ -16,23 +16,20 @@ import { RankingSelector } from "@/components/survey/ranking-selector";
 import { TextInput } from "@/components/survey/text-input";
 import { EmojiCardSelect } from "@/components/survey/emoji-card-select";
 import { cn } from "@/lib/utils";
+import { computePosterProfile, type PosterProfile } from "@/lib/poster-profile";
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 const POSTER_FONT = "'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', sans-serif";
-const POSTER_BARS = [
-  { left: "独立自主", right: "深度融合", pct: 65, label: "互动模式更偏向「组队解决」" },
-  { left: "情感主导", right: "现实稳健", pct: 40, label: "现实坐标更偏向「情感连接」" },
-  { left: "稳步平航", right: "战术激进", pct: 80, label: "行动力爆表" },
-];
 
-function PosterPreview({ wrapperRef, posterRef, posterScale, archetype, displayName, shareUrl }: {
+function PosterPreview({ wrapperRef, posterRef, posterScale, archetype, displayName, shareUrl, bars }: {
   wrapperRef: React.RefObject<HTMLDivElement | null>;
   posterRef: React.RefObject<HTMLDivElement | null>;
   posterScale: number;
   archetype: string;
   displayName: string;
   shareUrl: string;
+  bars: Array<{ left: string; right: string; pct: number; label: string }>;
 }) {
   return (
     <div ref={wrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
@@ -56,8 +53,8 @@ function PosterPreview({ wrapperRef, posterRef, posterScale, archetype, displayN
             {/* Bars */}
             <div style={{ padding: "0 28px", flex: 1 }}>
               <div style={{ background: "#ffffff", borderRadius: 16, padding: "20px 20px", border: "1px solid #e8d5c8" }}>
-                {POSTER_BARS.map((bar, i) => (
-                  <div key={i} style={{ marginBottom: i < POSTER_BARS.length - 1 ? 20 : 0 }}>
+                {bars.map((bar, i) => (
+                  <div key={i} style={{ marginBottom: i < bars.length - 1 ? 20 : 0 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, marginBottom: 8, color: "#2d1b14" }}>
                       <span>{bar.left}</span><span>{bar.right}</span>
                     </div>
@@ -291,6 +288,15 @@ function SurveyPageInner() {
   const [posterScale, setPosterScale] = useState(0.45);
   const posterRef = useRef<HTMLDivElement>(null);
   const posterWrapperRef = useRef<HTMLDivElement>(null);
+
+  const posterProfile = useMemo<PosterProfile>(() => {
+    const ver = (selectedVersion ?? "v2") as "v3-lite" | "v2";
+    return computePosterProfile(
+      answers,
+      ver,
+      hasLiteData ? liteAnswers : undefined,
+    );
+  }, [answers, liteAnswers, hasLiteData, selectedVersion]);
 
   useEffect(() => {
     function calcScale() {
@@ -1163,9 +1169,10 @@ function SurveyPageInner() {
           wrapperRef={posterWrapperRef}
           posterRef={posterRef}
           posterScale={posterScale}
-          archetype={hasLiteData ? "多维探索者" : "坚定领航员"}
+          archetype={posterProfile.archetype}
           displayName={displayName}
           shareUrl={shareUrl}
+          bars={posterProfile.bars}
         />
 
         <button
@@ -1342,9 +1349,10 @@ function SurveyPageInner() {
           wrapperRef={posterWrapperRef}
           posterRef={posterRef}
           posterScale={posterScale}
-          archetype={hasLiteData ? "多维探索者" : "坚定领航员"}
+          archetype={posterProfile.archetype}
           displayName={displayName}
           shareUrl={shareUrl}
+          bars={posterProfile.bars}
         />
 
         <button
