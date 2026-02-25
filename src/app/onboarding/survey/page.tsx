@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { trpc } from "@/lib/trpc";
 import { getSurveyVersion } from "@/lib/survey-questions";
 import type { SurveyQuestion, SingleQuestion } from "@/lib/survey-versions/types";
@@ -13,6 +14,8 @@ import { RankingSelector } from "@/components/survey/ranking-selector";
 import { TextInput } from "@/components/survey/text-input";
 import { EmojiCardSelect } from "@/components/survey/emoji-card-select";
 import { cn } from "@/lib/utils";
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 
 type Answers = Record<string, number | string | string[]>;
 type VersionId = "v3-lite" | "v2";
@@ -166,6 +169,9 @@ function SurveyPageInner() {
       : {}
   );
   const [showDeepIntro, setShowDeepIntro] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const turnstileRef = useRef<TurnstileInstance>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLiteData = Object.keys(liteAnswers).length > 0;
 
@@ -224,6 +230,11 @@ function SurveyPageInner() {
         setEmailSendIssue("首次验证邮件发送失败，请点击下方按钮重新发送。");
       }
       setSubmitted(true);
+      setTurnstileToken("");
+    },
+    onError: () => {
+      turnstileRef.current?.reset();
+      setTurnstileToken("");
     },
   });
 
@@ -237,10 +248,14 @@ function SurveyPageInner() {
   }, [resendCooldown]);
 
   const handleResend = () => {
-    if (!email || resendMutation.isPending || resendCooldown > 0) return;
+    if (!email || resendMutation.isPending || resendCooldown > 0 || !turnstileToken) return;
     resendMutation.reset();
-    resendMutation.mutate({ email }, {
-      onSettled: () => setResendCooldown(5),
+    resendMutation.mutate({ email, turnstileToken }, {
+      onSettled: () => {
+        setResendCooldown(5);
+        turnstileRef.current?.reset();
+        setTurnstileToken("");
+      },
     });
   };
 
@@ -294,7 +309,7 @@ function SurveyPageInner() {
   }
 
   function handleSubmit() {
-    if (!email || !displayName || !education || !schoolTier) return;
+    if (!email || !displayName || !education || !schoolTier || !turnstileToken) return;
     setEmailSendIssue(null);
     const mergedAnswers = { ...liteAnswers, ...answers };
     const versionTag = hasLiteData
@@ -310,6 +325,8 @@ function SurveyPageInner() {
       answers: mergedAnswers,
       surveyVersion: versionTag,
       referralCode: referralCode || undefined,
+      turnstileToken,
+      honeypot: honeypot || undefined,
     });
   }
 
@@ -845,6 +862,18 @@ function SurveyPageInner() {
             感谢你完成快速版测试
           </p>
 
+          {TURNSTILE_SITE_KEY && (
+            <div className="flex justify-center mb-4">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                onError={() => setTurnstileToken("")}
+              />
+            </div>
+          )}
+
           {emailSendIssue ? (
             <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-300 dark:border-red-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
               <div className="flex items-start gap-3">
@@ -863,7 +892,7 @@ function SurveyPageInner() {
                   </p>
                   <button
                     onClick={handleResend}
-                    disabled={resendMutation.isPending || resendCooldown > 0}
+                    disabled={resendMutation.isPending || resendCooldown > 0 || !turnstileToken}
                     className="mt-3 w-full py-2.5 bg-red-600 dark:bg-red-700 text-white rounded-full font-medium hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {resendMutation.isPending
@@ -907,7 +936,7 @@ function SurveyPageInner() {
                     <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
                     <button
                       onClick={handleResend}
-                      disabled={resendMutation.isPending || resendCooldown > 0}
+                      disabled={resendMutation.isPending || resendCooldown > 0 || !turnstileToken}
                       className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {resendMutation.isPending
@@ -983,6 +1012,18 @@ function SurveyPageInner() {
           </p>
         )}
 
+        {TURNSTILE_SITE_KEY && (
+          <div className="flex justify-center mb-4">
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={TURNSTILE_SITE_KEY}
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken("")}
+              onError={() => setTurnstileToken("")}
+            />
+          </div>
+        )}
+
         {emailSendIssue ? (
           <div className="bg-red-50 dark:bg-red-950/30 border-2 border-red-300 dark:border-red-700 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
             <div className="flex items-start gap-3">
@@ -1045,7 +1086,7 @@ function SurveyPageInner() {
                   <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
                   <button
                     onClick={handleResend}
-                    disabled={resendMutation.isPending || resendCooldown > 0}
+                    disabled={resendMutation.isPending || resendCooldown > 0 || !turnstileToken}
                     className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {resendMutation.isPending
@@ -1238,6 +1279,23 @@ function SurveyPageInner() {
               匹配结果将发送到此邮箱，请确保填写正确
             </p>
           </div>
+
+          {/* Honeypot */}
+          <div className="absolute opacity-0 -z-10 h-0 overflow-hidden" aria-hidden="true">
+            <input tabIndex={-1} autoComplete="off" name="website" value={honeypot} onChange={(e) => setHoneypot(e.target.value)} />
+          </div>
+
+          {TURNSTILE_SITE_KEY && (
+            <div className="flex justify-center">
+              <Turnstile
+                ref={turnstileRef}
+                siteKey={TURNSTILE_SITE_KEY}
+                onSuccess={(token) => setTurnstileToken(token)}
+                onExpire={() => setTurnstileToken("")}
+                onError={() => setTurnstileToken("")}
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 mt-10">
@@ -1251,7 +1309,7 @@ function SurveyPageInner() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={mutation.isPending || !email || !displayName || !education || !schoolTier}
+            disabled={mutation.isPending || !email || !displayName || !education || !schoolTier || (!turnstileToken && !!TURNSTILE_SITE_KEY)}
             className="flex-1 py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors disabled:opacity-50"
           >
             {mutation.isPending ? "提交中..." : "提交问卷"}

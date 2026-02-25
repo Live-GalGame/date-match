@@ -1,7 +1,22 @@
 import { z } from "zod";
 import { randomUUID } from "crypto";
+import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, protectedProcedure, publicProcedure } from "../trpc";
 import { sendConfirmationEmail } from "@/server/email/send-confirmation";
+import { verifyTurnstileToken } from "@/lib/turnstile";
+
+const BLOCKED_EMAIL_DOMAINS = new Set([
+  "example.com",
+  "test.com",
+  "mailinator.com",
+  "tempmail.com",
+  "throwaway.email",
+  "guerrillamail.com",
+  "yopmail.com",
+  "sharklasers.com",
+  "grr.la",
+  "spam4.me",
+]);
 
 const FAKE_HELICOPTER_NAMES = [
   "AH-64恋爱中", "黑鹰小甜心", "直-20暖男", "旋翼少女心",
@@ -86,9 +101,30 @@ export const surveyRouter = createTRPCRouter({
         ),
         surveyVersion: z.string().optional(),
         referralCode: z.string().max(100).optional(),
+        turnstileToken: z.string().min(1),
+        honeypot: z.string().max(0).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.honeypot) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid submission" });
+      }
+
+      const domain = input.email.split("@")[1]?.toLowerCase();
+      if (!domain || BLOCKED_EMAIL_DOMAINS.has(domain)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "请使用有效的邮箱地址" });
+      }
+
+      const answerKeys = Object.keys(input.answers).filter(k => !k.startsWith("_"));
+      if (answerKeys.length < 3) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "问卷数据不完整，请返回检查" });
+      }
+
+      const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
+      if (!turnstileOk) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "人机验证失败，请刷新页面重试" });
+      }
+
       const answersWithMeta = {
         ...input.answers,
         _surveyVersion: input.surveyVersion ?? "v2",
@@ -175,15 +211,38 @@ export const surveyRouter = createTRPCRouter({
     }),
 
   resendConfirmation: publicProcedure
-    .input(z.object({ email: z.string().email() }))
+    .input(z.object({
+      email: z.string().email(),
+      turnstileToken: z.string().min(1),
+    }))
     .mutation(async ({ ctx, input }) => {
+      const domain = input.email.split("@")[1]?.toLowerCase();
+      if (!domain || BLOCKED_EMAIL_DOMAINS.has(domain)) {
+        return { success: true };
+      }
+
+      const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
+      if (!turnstileOk) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "人机验证失败，请刷新页面重试" });
+      }
+
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      const recentCount = await ctx.db.verification.count({
+        where: {
+          identifier: input.email,
+          createdAt: { gte: oneHourAgo },
+        },
+      });
+      if (recentCount >= 5) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "发送过于频繁，请稍后再试" });
+      }
+
       const user = await ctx.db.user.findUnique({
         where: { email: input.email },
         select: { id: true, name: true },
       });
 
       if (!user) {
-        // Don't reveal whether the email exists
         return { success: true };
       }
 
