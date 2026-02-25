@@ -207,7 +207,7 @@ export const surveyRouter = createTRPCRouter({
         console.error("[sendConfirmationEmail] failed:", err);
       }
 
-      return { success: true, userId: user.id, emailSent };
+      return { success: true, userId: user.id, emailSent, shareCode: user.id };
     }),
 
   resendConfirmation: publicProcedure

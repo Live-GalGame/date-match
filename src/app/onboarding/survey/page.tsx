@@ -4,6 +4,8 @@ import { useState, useCallback, useRef, useMemo, useEffect, Suspense } from "rea
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
+import { QRCodeSVG } from "qrcode.react";
+import html2canvas from "html2canvas";
 import { trpc } from "@/lib/trpc";
 import { getSurveyVersion } from "@/lib/survey-questions";
 import type { SurveyQuestion, SingleQuestion } from "@/lib/survey-versions/types";
@@ -198,6 +200,43 @@ function SurveyPageInner() {
   const turnstileRef = useRef<TurnstileInstance>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasLiteData = Object.keys(liteAnswers).length > 0;
+  const [isGeneratingPoster, setIsGeneratingPoster] = useState(false);
+  const [posterScale, setPosterScale] = useState(0.45);
+  const posterRef = useRef<HTMLDivElement>(null);
+  const posterWrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function calcScale() {
+      if (!posterWrapperRef.current) return;
+      const containerWidth = posterWrapperRef.current.getBoundingClientRect().width;
+      setPosterScale(containerWidth / 800);
+    }
+    calcScale();
+    window.addEventListener("resize", calcScale);
+    return () => window.removeEventListener("resize", calcScale);
+  }, [submitted]);
+
+  const generatePoster = async () => {
+    if (!posterRef.current) return;
+    try {
+      setIsGeneratingPoster(true);
+      const canvas = await html2canvas(posterRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: "#fdf6f0", // matches --background
+      });
+      const dataUrl = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `date-match-report-${displayName || "user"}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("生成海报失败", err);
+      alert("生成海报失败，请稍后重试");
+    } finally {
+      setIsGeneratingPoster(false);
+    }
+  };
 
   // Save state on change
   useEffect(() => {
@@ -253,6 +292,9 @@ function SurveyPageInner() {
         setEmailSendIssue(null);
       } else {
         setEmailSendIssue("首次验证邮件发送失败，请点击下方按钮重新发送。");
+      }
+      if (result.shareCode && typeof window !== "undefined") {
+        try { localStorage.setItem("myShareCode", result.shareCode); } catch {}
       }
       setSubmitted(true);
       setTurnstileToken("");
@@ -913,6 +955,9 @@ function SurveyPageInner() {
   // ─── Phase: Submitted ───
 
   if (submitted) {
+    const myShareCode = typeof window !== "undefined" ? localStorage.getItem("myShareCode") || "" : "";
+    const shareUrl = `${typeof window !== "undefined" ? window.location.origin : "https://www.date-match.online"}/?code=${myShareCode}`;
+
     if (isLite) {
       return (
         <div className="animate-fade-in text-center py-16">
@@ -1023,38 +1068,113 @@ function SurveyPageInner() {
             </div>
           )}
 
-          <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
-            <h3 className="font-serif text-lg mb-2">🔬 想要更精准的匹配？</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              深度版覆盖七大心理学维度，从安全感、冲突模式到现实规划，帮你找到更深层次契合的人。
-            </p>
-            <button
-              type="button"
-              onClick={handleTryDeep}
-              className="w-full py-3 rounded-full bg-primary text-primary-foreground font-medium hover:bg-accent transition-colors"
-            >
-              继续完成深度版 →
-            </button>
-          </div>
-
-          <div className="mt-6 bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
-            <h3 className="font-serif text-lg mb-3">验证邮箱后会发生什么？</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
-              <li className="flex gap-2">
-                <span className="text-primary">1.</span>
-                点击邮件中的验证链接，激活你的匹配资格
-              </li>
-              <li className="flex gap-2">
-                <span className="text-primary">2.</span>
-                我们会在每周匹配轮次中为你寻找最契合的对象
-              </li>
-              <li className="flex gap-2">
-                <span className="text-primary">3.</span>
-                匹配成功后，邮件通知你对方的联系方式和匹配原因
-              </li>
-            </ul>
+        {/* Poster Preview */}
+        <div ref={posterWrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
+          <div className="relative w-full" style={{ paddingBottom: "177.75%" }}>
+            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1422px", transform: `scale(${posterScale})` }}>
+              <div ref={posterRef} className="w-[800px] h-[1422px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
+                <div className="pt-20 px-16 text-center">
+                  <div style={{ color: "#8b225280", fontSize: "24px", fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.2em", marginBottom: "16px" }}>DATE-MATCH</div>
+                  <h1 style={{ fontSize: "56px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", lineHeight: 1.2 }}>
+                    寻找与我<br />灵魂共振的人
+                  </h1>
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", margin: "48px 0" }}>
+                  <div style={{ width: "256px", height: "256px", background: "#8b225218", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "32px", position: "relative" }}>
+                    <span style={{ fontSize: "128px", lineHeight: 1 }}>✨</span>
+                    <div style={{ position: "absolute", inset: "-16px", border: "4px solid #8b225030", borderRadius: "50%" }} />
+                  </div>
+                  <h2 style={{ fontSize: "40px", fontWeight: "bold", color: "#8b2252", marginBottom: "12px" }}>
+                    {hasLiteData ? "多维探索者" : "坚定领航员"}
+                  </h2>
+                  <p style={{ fontSize: "24px", color: "#6b5449" }}>
+                    {displayName || "神秘飞行员"}
+                  </p>
+                </div>
+                <div style={{ padding: "0 64px", marginBottom: "48px" }}>
+                  <div style={{ background: "#ffffff", borderRadius: "24px", padding: "40px", border: "2px solid #e8d5c8", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)" }}>
+                    {[
+                      { left: "独立自主", right: "深度融合", pct: 65, label: "互动模式更偏向「组队解决」" },
+                      { left: "情感主导", right: "现实稳健", pct: 40, label: "现实坐标更偏向「情感连接」" },
+                      { left: "稳步平航", right: "战术激进", pct: 80, label: "行动力爆表" },
+                    ].map((bar, i) => (
+                      <div key={i} style={{ marginBottom: i < 2 ? "32px" : 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "20px", fontWeight: 500, marginBottom: "12px" }}>
+                          <span>{bar.left}</span>
+                          <span>{bar.right}</span>
+                        </div>
+                        <div style={{ height: "24px", background: "#f5ebe3", borderRadius: "12px", position: "relative", overflow: "visible" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${bar.pct}%`, background: "#8b225060", borderRadius: "12px" }} />
+                          <div style={{ position: "absolute", left: `${bar.pct}%`, top: "50%", transform: "translate(-50%, -50%)", width: "32px", height: "32px", background: "#8b2252", borderRadius: "50%", boxShadow: "0 2px 8px rgba(139,34,82,0.3)" }} />
+                        </div>
+                        <p style={{ textAlign: "center", color: "#8b2252cc", fontWeight: 500, fontSize: "18px", marginTop: "8px" }}>{bar.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ marginTop: "auto", background: "#8b2252", color: "#fdf6f0", padding: "48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ maxWidth: "400px" }}>
+                    <h3 style={{ fontSize: "28px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", marginBottom: "12px" }}>了解你的关系基因</h3>
+                    <p style={{ color: "#fdf6f0cc", fontSize: "20px", lineHeight: 1.6 }}>
+                      扫码参与测试，看看<br />我们到底有多契合？
+                    </p>
+                  </div>
+                  <div style={{ background: "#ffffff", padding: "16px", borderRadius: "16px", flexShrink: 0 }}>
+                    <QRCodeSVG
+                      value={shareUrl}
+                      size={140}
+                      level="H"
+                      bgColor="#ffffff"
+                      fgColor="#8b2252"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={generatePoster}
+          disabled={isGeneratingPoster}
+          className="w-full max-w-md mx-auto mb-6 block py-3 rounded-full bg-accent text-accent-foreground font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+        >
+          {isGeneratingPoster ? "生成中..." : "📸 保存海报到相册"}
+        </button>
+
+        <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
+          <h3 className="font-serif text-lg mb-2">🔬 想要更精准的匹配？</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            深度版覆盖七大心理学维度，从安全感、冲突模式到现实规划，帮你找到更深层次契合的人。
+          </p>
+          <button
+            type="button"
+            onClick={handleTryDeep}
+            className="w-full py-3 rounded-full bg-primary text-primary-foreground font-medium hover:bg-accent transition-colors"
+          >
+            继续完成深度版 →
+          </button>
+        </div>
+
+        <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left mt-6 mb-6">
+          <h3 className="font-serif text-lg mb-3">验证邮箱后会发生什么？</h3>
+          <ul className="space-y-2 text-sm text-muted-foreground">
+            <li className="flex gap-2">
+              <span className="text-primary">1.</span>
+              点击邮件中的验证链接，激活你的匹配资格
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary">2.</span>
+              我们会在每周匹配轮次中为你寻找最契合的对象
+            </li>
+            <li className="flex gap-2">
+              <span className="text-primary">3.</span>
+              匹配成功后，邮件通知你对方的联系方式和匹配原因
+            </li>
+          </ul>
+        </div>
+      </div>
       );
     }
 
@@ -1181,7 +1301,82 @@ function SurveyPageInner() {
           </div>
         )}
 
-        <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left">
+        {/* Poster Preview (Deep) */}
+        <div ref={posterWrapperRef} className="max-w-md mx-auto mb-6 rounded-2xl overflow-hidden border-2 border-border shadow-lg">
+          <div className="relative w-full" style={{ paddingBottom: "177.75%" }}>
+            <div className="absolute inset-0 origin-top-left" style={{ width: "800px", height: "1422px", transform: `scale(${posterScale})` }}>
+              <div ref={posterRef} className="w-[800px] h-[1422px] flex flex-col relative" style={{ fontFamily: "'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif", background: "#fdf6f0", color: "#2d1b14" }}>
+                <div className="pt-20 px-16 text-center">
+                  <div style={{ color: "#8b225280", fontSize: "24px", fontFamily: "Georgia, 'Times New Roman', serif", letterSpacing: "0.2em", marginBottom: "16px" }}>DATE-MATCH</div>
+                  <h1 style={{ fontSize: "56px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", lineHeight: 1.2 }}>
+                    寻找与我<br />灵魂共振的人
+                  </h1>
+                </div>
+                <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", margin: "48px 0" }}>
+                  <div style={{ width: "256px", height: "256px", background: "#8b225218", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "32px", position: "relative" }}>
+                    <span style={{ fontSize: "128px", lineHeight: 1 }}>✨</span>
+                    <div style={{ position: "absolute", inset: "-16px", border: "4px solid #8b225030", borderRadius: "50%" }} />
+                  </div>
+                  <h2 style={{ fontSize: "40px", fontWeight: "bold", color: "#8b2252", marginBottom: "12px" }}>
+                    {hasLiteData ? "多维探索者" : "坚定领航员"}
+                  </h2>
+                  <p style={{ fontSize: "24px", color: "#6b5449" }}>
+                    {displayName || "神秘飞行员"}
+                  </p>
+                </div>
+                <div style={{ padding: "0 64px", marginBottom: "48px" }}>
+                  <div style={{ background: "#ffffff", borderRadius: "24px", padding: "40px", border: "2px solid #e8d5c8", boxShadow: "0 10px 25px -5px rgba(0,0,0,0.08)" }}>
+                    {[
+                      { left: "独立自主", right: "深度融合", pct: 65, label: "互动模式更偏向「组队解决」" },
+                      { left: "情感主导", right: "现实稳健", pct: 40, label: "现实坐标更偏向「情感连接」" },
+                      { left: "稳步平航", right: "战术激进", pct: 80, label: "行动力爆表" },
+                    ].map((bar, i) => (
+                      <div key={i} style={{ marginBottom: i < 2 ? "32px" : 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: "20px", fontWeight: 500, marginBottom: "12px" }}>
+                          <span>{bar.left}</span>
+                          <span>{bar.right}</span>
+                        </div>
+                        <div style={{ height: "24px", background: "#f5ebe3", borderRadius: "12px", position: "relative", overflow: "visible" }}>
+                          <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${bar.pct}%`, background: "#8b225060", borderRadius: "12px" }} />
+                          <div style={{ position: "absolute", left: `${bar.pct}%`, top: "50%", transform: "translate(-50%, -50%)", width: "32px", height: "32px", background: "#8b2252", borderRadius: "50%", boxShadow: "0 2px 8px rgba(139,34,82,0.3)" }} />
+                        </div>
+                        <p style={{ textAlign: "center", color: "#8b2252cc", fontWeight: 500, fontSize: "18px", marginTop: "8px" }}>{bar.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ marginTop: "auto", background: "#8b2252", color: "#fdf6f0", padding: "48px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ maxWidth: "400px" }}>
+                    <h3 style={{ fontSize: "28px", fontFamily: "Georgia, 'Times New Roman', serif", fontWeight: "bold", marginBottom: "12px" }}>了解你的关系基因</h3>
+                    <p style={{ color: "#fdf6f0cc", fontSize: "20px", lineHeight: 1.6 }}>
+                      扫码参与测试，看看<br />我们到底有多契合？
+                    </p>
+                  </div>
+                  <div style={{ background: "#ffffff", padding: "16px", borderRadius: "16px", flexShrink: 0 }}>
+                    <QRCodeSVG
+                      value={shareUrl}
+                      size={140}
+                      level="H"
+                      bgColor="#ffffff"
+                      fgColor="#8b2252"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={generatePoster}
+          disabled={isGeneratingPoster}
+          className="w-full max-w-md mx-auto mb-6 block py-3 rounded-full bg-accent text-accent-foreground font-medium hover:bg-accent/90 transition-colors disabled:opacity-50"
+        >
+          {isGeneratingPoster ? "生成中..." : "📸 保存海报到相册"}
+        </button>
+
+        <div className="bg-card rounded-2xl p-6 border border-border shadow-sm max-w-md mx-auto text-left mb-6">
           <h3 className="font-serif text-lg mb-3">验证邮箱后会发生什么？</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex gap-2">
