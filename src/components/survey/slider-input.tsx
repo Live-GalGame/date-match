@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface SliderInputProps {
@@ -27,8 +28,15 @@ export function SliderInput({
   value,
   onChange,
 }: SliderInputProps) {
-  const current = value ?? Math.round((min + max) / 2);
+  const defaultValue = Math.round((min + max) / 2);
+  const current = value ?? defaultValue;
   const percentage = ((current - min) / (max - min)) * 100;
+
+  useEffect(() => {
+    if (value === null) {
+      onChange(defaultValue);
+    }
+  }, []);
 
   return (
     <div className="py-6">
