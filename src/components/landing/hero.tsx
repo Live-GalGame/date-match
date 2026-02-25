@@ -6,7 +6,7 @@ export function Hero({ code }: { code?: string }) {
     : "/onboarding/survey";
 
   return (
-    <section className="relative min-h-[85vh] flex flex-col items-center justify-center text-center hero-gradient text-white overflow-hidden">
+    <section className="relative min-h-[70vh] flex flex-col items-center justify-center text-center hero-gradient text-white overflow-hidden">
       <div className="absolute inset-0 bg-[url('/stars.svg')] opacity-30 bg-repeat" />
 
       <nav className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-5 z-10">
@@ -32,10 +32,32 @@ export function Hero({ code }: { code?: string }) {
         </p>
         <Link
           href={surveyHref}
-          className="inline-block px-10 py-4 rounded-full bg-white text-primary font-medium text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all"
+          className="inline-block px-10 py-4 rounded-full bg-white text-primary font-medium text-lg shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all mb-8"
         >
           开始测试
         </Link>
+
+        {/* TODO: 设计一个更漂亮的 Social Proof 方案
+        <div className="flex items-center justify-center gap-3 text-sm text-white/80 animate-fade-in" style={{ animationDelay: "200ms" }}>
+          <div className="flex items-center -space-x-3">
+            <div className="w-9 h-9 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center backdrop-blur-sm">
+              <span className="text-sm">👩🏻</span>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center backdrop-blur-sm z-10">
+              <span className="text-sm">🧑🏽</span>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-white/10 border-2 border-white/20 flex items-center justify-center backdrop-blur-sm z-20">
+              <span className="text-sm">👨🏻‍🦱</span>
+            </div>
+          </div>
+          <div className="flex flex-col items-start text-left">
+            <div className="flex items-center text-yellow-400 text-xs tracking-widest mb-0.5">
+              ★★★★★
+            </div>
+            <span>已有 <span className="font-semibold text-white">2,000+</span> 人寻找共鸣</span>
+          </div>
+        </div>
+        */}
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />

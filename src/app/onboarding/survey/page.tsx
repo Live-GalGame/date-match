@@ -20,7 +20,8 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
 type Answers = Record<string, number | string | string[]>;
 type VersionId = "v3-lite" | "v2";
 
-type Gender = "" | "男" | "女" | "不愿意透露" | "武装直升机";
+type Gender = "" | "男" | "女" | "其他";
+type OtherGenderOption = "" | "不愿意透露" | "武装直升机";
 type DatingPref = "" | "男" | "女" | "不愿意透露";
 
 interface PersistedSurveyState {
@@ -29,6 +30,7 @@ interface PersistedSurveyState {
   selectedVersion: VersionId | null;
   currentIndex: number;
   gender: Gender;
+  otherGender: OtherGenderOption;
   datingPreference: DatingPref;
   genderDone: boolean;
   email: string;
@@ -53,8 +55,12 @@ function loadPersistedSurveyState(): Partial<PersistedSurveyState> {
 const GENDER_OPTIONS: { value: Gender; emoji: string; label: string }[] = [
   { value: "男", emoji: "👨", label: "男" },
   { value: "女", emoji: "👩", label: "女" },
-  { value: "不愿意透露", emoji: "🤫", label: "不愿意透露" },
-  { value: "武装直升机", emoji: "🚁", label: "武装直升机" },
+  { value: "其他", emoji: "🌈", label: "其他" },
+];
+
+const OTHER_GENDER_OPTIONS: { value: OtherGenderOption; label: string }[] = [
+  { value: "不愿意透露", label: "不愿意透露" },
+  { value: "武装直升机", label: "武装直升机" },
 ];
 
 const DATING_OPTIONS: { value: DatingPref; emoji: string; label: string }[] = [
@@ -129,9 +135,27 @@ function SurveyPageInner() {
   const [savedState] = useState<Partial<PersistedSurveyState>>(() =>
     loadPersistedSurveyState()
   );
-  const [gender, setGender] = useState<Gender>(
-    (savedState.gender as Gender) || ""
-  );
+  const [gender, setGender] = useState<Gender>(() => {
+    const savedGender: string = typeof savedState.gender === "string" ? savedState.gender : "";
+    if (savedGender === "男" || savedGender === "女" || savedGender === "其他") {
+      return savedGender;
+    }
+    if (savedGender === "不愿意透露" || savedGender === "武装直升机") {
+      return "其他";
+    }
+    return "";
+  });
+  const [otherGender, setOtherGender] = useState<OtherGenderOption>(() => {
+    const savedOtherGender: string = typeof savedState.otherGender === "string" ? savedState.otherGender : "";
+    if (savedOtherGender === "不愿意透露" || savedOtherGender === "武装直升机") {
+      return savedOtherGender;
+    }
+    const savedGender: string = typeof savedState.gender === "string" ? savedState.gender : "";
+    if (savedGender === "不愿意透露" || savedGender === "武装直升机") {
+      return savedGender;
+    }
+    return "";
+  });
   const [datingPreference, setDatingPreference] = useState<DatingPref>(
     (savedState.datingPreference as DatingPref) || ""
   );
@@ -190,6 +214,7 @@ function SurveyPageInner() {
         selectedVersion,
         currentIndex,
         gender,
+        otherGender,
         datingPreference,
         genderDone,
         email,
@@ -201,7 +226,7 @@ function SurveyPageInner() {
     } catch (e) {
       console.error("Failed to save survey state:", e);
     }
-  }, [answers, liteAnswers, selectedVersion, currentIndex, gender, datingPreference, genderDone, email, displayName, education, schoolTier, submitted]);
+  }, [answers, liteAnswers, selectedVersion, currentIndex, gender, otherGender, datingPreference, genderDone, email, displayName, education, schoolTier, submitted]);
 
   const helicopterQuery = trpc.survey.getHelicopterPilots.useQuery(undefined, {
     enabled: heliPhase === "result",
@@ -315,10 +340,11 @@ function SurveyPageInner() {
     const versionTag = hasLiteData
       ? "v3-lite+v2"
       : (selectedVersion ?? undefined);
+    const submitGender = gender === "其他" ? otherGender : gender;
     mutation.mutate({
       email,
       displayName,
-      gender: gender || undefined,
+      gender: submitGender || undefined,
       datingPreference: datingPreference || undefined,
       education,
       schoolTier,
@@ -603,21 +629,20 @@ function SurveyPageInner() {
           {/* 你的性别 */}
           <div>
             <label className="block text-sm font-medium mb-3">你的性别</label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {GENDER_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
                   type="button"
                   onClick={() => {
                     setGender(opt.value);
-                    if (opt.value === "武装直升机") {
-                      setHeliPhase("quiz");
-                      setHeliStep(0);
-                      setHeliAnswers({});
+                    if (opt.value !== "其他") {
+                      setOtherGender("");
+                      setHeliPhase(null);
                     }
                   }}
                   className={cn(
-                    "flex items-center gap-3 px-4 py-3.5 rounded-xl border-2 text-sm font-medium transition-all",
+                    "flex flex-col items-center gap-2 px-3 py-4 rounded-xl border-2 text-sm font-medium transition-all",
                     gender === opt.value
                       ? "border-primary bg-primary/10 text-primary scale-[1.02] shadow-md"
                       : "border-border bg-card text-foreground hover:border-primary/40 hover:shadow-sm"
@@ -628,6 +653,35 @@ function SurveyPageInner() {
                 </button>
               ))}
             </div>
+            {gender === "其他" && (
+              <div className="mt-3">
+                <label className="block text-sm font-medium mb-2 text-muted-foreground">
+                  请选择具体选项
+                </label>
+                <select
+                  value={otherGender}
+                  onChange={(e) => {
+                    const value = e.target.value as OtherGenderOption;
+                    setOtherGender(value);
+                    if (value === "武装直升机") {
+                      setHeliPhase("quiz");
+                      setHeliStep(0);
+                      setHeliAnswers({});
+                    } else {
+                      setHeliPhase(null);
+                    }
+                  }}
+                  className="w-full rounded-xl border-2 border-border bg-card px-3 py-3 text-sm outline-none transition-colors focus:border-primary"
+                >
+                  <option value="" disabled>请选择</option>
+                  {OTHER_GENDER_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* 你想 date 的性别 */}
@@ -653,13 +707,19 @@ function SurveyPageInner() {
                 </button>
               ))}
             </div>
+            {datingPreference === "不愿意透露" && (
+              <p className="text-sm text-amber-600 dark:text-amber-500 mt-3 flex items-start gap-1.5 animate-in fade-in zoom-in-95 duration-200">
+                <span className="shrink-0 mt-0.5">⚠️</span>
+                <span>我们尊重您的选择，但请注意，“不愿意透露”会极大地降低匹配概率。</span>
+              </p>
+            )}
           </div>
         </div>
 
         <div className="mt-10">
           <button
             type="button"
-            disabled={!gender || !datingPreference}
+            disabled={!gender || (gender === "其他" && !otherGender) || !datingPreference}
             onClick={() => setGenderDone(true)}
             className="w-full py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
