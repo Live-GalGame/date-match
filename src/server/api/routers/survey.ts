@@ -101,7 +101,7 @@ export const surveyRouter = createTRPCRouter({
         ),
         surveyVersion: z.string().optional(),
         referralCode: z.string().max(100).optional(),
-        turnstileToken: z.string().min(1),
+        turnstileToken: z.string().optional(),
         honeypot: z.string().max(0).optional(),
       })
     )
@@ -120,10 +120,40 @@ export const surveyRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "问卷数据不完整，请返回检查" });
       }
 
-      const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
-      if (!turnstileOk) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "人机验证失败，请刷新页面重试" });
+      // Turnstile: validate if token present, skip if absent (graceful degradation for China network)
+      if (input.turnstileToken) {
+        const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
+        if (!turnstileOk) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "人机验证失败，请刷新页面重试" });
+        }
       }
+
+      // Same-email cooldown: 1 min
+      const oneMinAgo = new Date(Date.now() - 60 * 1000);
+      const recentEmailSubmit = await ctx.db.verification.count({
+        where: { identifier: input.email, createdAt: { gte: oneMinAgo } },
+      });
+      if (recentEmailSubmit > 0) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "提交过于频繁，请 1 分钟后再试" });
+      }
+
+      // IP rate limit: max 10 submissions per 10 min (without Turnstile token, stricter: 5)
+      const ip = ctx.ip;
+      const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000);
+      const recentIpCount = await ctx.db.verification.count({
+        where: { identifier: `rate:ip:${ip}`, createdAt: { gte: tenMinAgo } },
+      });
+      const ipLimit = input.turnstileToken ? 10 : 5;
+      if (recentIpCount >= ipLimit) {
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "当前网络提交过于频繁，请稍后再试" });
+      }
+      await ctx.db.verification.create({
+        data: {
+          identifier: `rate:ip:${ip}`,
+          value: "submit",
+          expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+        },
+      });
 
       const answersWithMeta = {
         ...input.answers,
@@ -213,7 +243,7 @@ export const surveyRouter = createTRPCRouter({
   resendConfirmation: publicProcedure
     .input(z.object({
       email: z.string().email(),
-      turnstileToken: z.string().min(1),
+      turnstileToken: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const domain = input.email.split("@")[1]?.toLowerCase();
@@ -221,9 +251,11 @@ export const surveyRouter = createTRPCRouter({
         return { success: true };
       }
 
-      const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
-      if (!turnstileOk) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "人机验证失败，请刷新页面重试" });
+      if (input.turnstileToken) {
+        const turnstileOk = await verifyTurnstileToken(input.turnstileToken);
+        if (!turnstileOk) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "人机验证失败，请刷新页面重试" });
+        }
       }
 
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);

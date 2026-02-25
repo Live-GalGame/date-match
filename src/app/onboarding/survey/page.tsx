@@ -315,9 +315,9 @@ function SurveyPageInner() {
   }, [resendCooldown]);
 
   const handleResend = () => {
-    if (!email || resendMutation.isPending || resendCooldown > 0 || !turnstileToken) return;
+    if (!email || resendMutation.isPending || resendCooldown > 0) return;
     resendMutation.reset();
-    resendMutation.mutate({ email, turnstileToken }, {
+    resendMutation.mutate({ email, turnstileToken: turnstileToken || undefined }, {
       onSettled: () => {
         setResendCooldown(5);
         turnstileRef.current?.reset();
@@ -376,7 +376,7 @@ function SurveyPageInner() {
   }
 
   function handleSubmit() {
-    if (!email || !displayName || !education || !schoolTier || !turnstileToken) return;
+    if (!email || !displayName || !education || !schoolTier) return;
     setEmailSendIssue(null);
     const mergedAnswers = { ...liteAnswers, ...answers };
     const versionTag = hasLiteData
@@ -393,7 +393,7 @@ function SurveyPageInner() {
       answers: mergedAnswers,
       surveyVersion: versionTag,
       referralCode: referralCode || undefined,
-      turnstileToken,
+      turnstileToken: turnstileToken || undefined,
       honeypot: honeypot || undefined,
     });
   }
@@ -997,7 +997,7 @@ function SurveyPageInner() {
                   </p>
                   <button
                     onClick={handleResend}
-                    disabled={resendMutation.isPending || resendCooldown > 0 || !turnstileToken}
+                    disabled={resendMutation.isPending || resendCooldown > 0}
                     className="mt-3 w-full py-2.5 bg-red-600 dark:bg-red-700 text-white rounded-full font-medium hover:bg-red-700 dark:hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {resendMutation.isPending
@@ -1041,7 +1041,7 @@ function SurveyPageInner() {
                     <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
                     <button
                       onClick={handleResend}
-                      disabled={resendMutation.isPending || resendCooldown > 0 || !turnstileToken}
+                      disabled={resendMutation.isPending || resendCooldown > 0}
                       className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {resendMutation.isPending
@@ -1266,7 +1266,7 @@ function SurveyPageInner() {
                   <span>没收到？部分邮箱可能需要 1-2 分钟送达，也请检查垃圾邮件文件夹</span>
                   <button
                     onClick={handleResend}
-                    disabled={resendMutation.isPending || resendCooldown > 0 || !turnstileToken}
+                    disabled={resendMutation.isPending || resendCooldown > 0}
                     className="self-start px-3 py-1.5 bg-amber-200 dark:bg-amber-800 text-amber-900 dark:text-amber-100 rounded-md font-medium hover:bg-amber-300 dark:hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {resendMutation.isPending
@@ -1564,7 +1564,7 @@ function SurveyPageInner() {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={mutation.isPending || !email || !displayName || !education || !schoolTier || (!turnstileToken && !!TURNSTILE_SITE_KEY)}
+            disabled={mutation.isPending || !email || !displayName || !education || !schoolTier}
             className="flex-1 py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors disabled:opacity-50"
           >
             {mutation.isPending ? "提交中..." : "提交问卷"}

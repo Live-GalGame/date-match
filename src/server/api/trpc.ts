@@ -5,14 +5,19 @@ import { db } from "@/server/db";
 import { headers } from "next/headers";
 
 export const createTRPCContext = async () => {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+  const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip") ||
+    "unknown";
 
   return {
     db,
     session,
     user: session?.user ?? null,
+    ip,
   };
 };
 
