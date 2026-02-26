@@ -33,6 +33,12 @@ export default function SurveyPage() {
 
 function SurveyPageInner() {
   const searchParams = useSearchParams();
+
+  // Prevent hydration mismatch: server has no localStorage, so we defer
+  // rendering real content until after the first client-side effect.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+
   const [referralCode] = useState<string>(() => {
     const fromUrl = typeof window !== "undefined" ? searchParams.get("code") ?? "" : "";
     if (fromUrl) {
@@ -180,6 +186,11 @@ function SurveyPageInner() {
   }
 
   // ─── Phase routing ───
+
+  // Wait for hydration so localStorage-derived state matches between server/client
+  if (!hydrated) {
+    return null;
+  }
 
   if (!genderDone) {
     return (
