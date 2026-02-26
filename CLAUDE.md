@@ -193,6 +193,29 @@ import activeVersion from "./survey-versions/v2";
 `runMatchingRound()` → 随机打乱已 opt-in 用户 → 贪心逐一配对 → 返回 `MatchResult[]`。
 触发入口：`POST /api/match/trigger`（需 Bearer token = BETTER_AUTH_SECRET）。
 
+## 用户增长图表（自动更新）
+
+README 中的用户增长曲线由 GitHub Actions 每 6 小时自动更新。
+
+| 文件 | 作用 |
+|------|------|
+| `scripts/update-growth-chart.mjs` | 查询 Turso 用户数据 → 生成 SVG 折线图（零依赖，用 Turso HTTP API + 手绘 SVG） |
+| `.github/workflows/update-growth-chart.yml` | 定时触发脚本，commit 更新后的 SVG 到 repo |
+| `public/growth-chart.svg` | 生成的图表文件，README 直接引用 |
+
+**GitHub Secrets（已通过 `gh secret set` 配置）：** `DATABASE_URL`、`TURSO_AUTH_TOKEN`
+
+**手动更新：**
+```bash
+# 本地运行
+DATABASE_URL="libsql://date-match-hhh2210.aws-ap-northeast-1.turso.io" \
+TURSO_AUTH_TOKEN="$(turso db tokens create date-match | tr -d '\n')" \
+node scripts/update-growth-chart.mjs
+
+# 或远程触发 GitHub Action
+gh workflow run update-growth-chart.yml
+```
+
 ## 常见操作速查
 
 ### 加一道新题
