@@ -19,11 +19,9 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData) {
   }
   const resend = new Resend(apiKey);
   const from = process.env.EMAIL_FROM?.trim() || "Date Match <noreply@datematch.com>";
-  const replyTo = process.env.REPLY_TO_EMAIL?.trim();
 
   const { data: sentEmail, error } = await resend.emails.send({
     from,
-    replyTo: replyTo || undefined,
     to: data.toEmail,
     subject: "验证你的邮箱 — Date Match",
     tags: [{ name: "email_type", value: "verification" }],
@@ -79,7 +77,7 @@ export async function sendConfirmationEmail(data: ConfirmationEmailData) {
         </div>
 
         <p style="color: #6b5449; font-size: 13px; line-height: 1.6;">
-          如果你有任何问题，直接回复这封邮件即可。
+          如果你有任何问题，欢迎联系我们。
         </p>
 
         <p style="color: #a89488; font-size: 12px; margin-top: 32px;">
