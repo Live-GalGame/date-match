@@ -29,6 +29,16 @@ export function Footer() {
                   开始测试
                 </Link>
               </li>
+              <li>
+                <Link href="/privacy" className="hover:text-white transition-colors">
+                  隐私政策
+                </Link>
+              </li>
+              <li>
+                <a href="mailto:hzy2210@gmail.com" className="hover:text-white transition-colors">
+                  Contact
+                </a>
+              </li>
             </ul>
           </div>
         </div>
