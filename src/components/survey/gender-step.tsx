@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { trpc } from "@/lib/trpc";
@@ -40,6 +40,16 @@ export function GenderStep({
   const [heliAnswers, setHeliAnswers] = useState<Record<string, string>>({});
   const [showHeliSplash, setShowHeliSplash] = useState(false);
   const heliSplashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (showHeliSplash) {
+      const audio = new Audio("/SeeUAgain.mp3");
+      audio.volume = 0.35;
+      audio.play().catch(() => {});
+      audioRef.current = audio;
+    }
+  }, [showHeliSplash]);
 
   const helicopterQuery = trpc.survey.getHelicopterPilots.useQuery(undefined, {
     enabled: heliPhase === "result",
