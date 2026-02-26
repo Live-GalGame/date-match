@@ -7,6 +7,12 @@
 **[立即体验 →](https://www.date-match.online)**
 > 国内域名解析，无需代理，欢迎转发给你的朋友～
 
+## 🚀 用户增长
+
+<picture>
+  <img src="public/growth-chart.svg" alt="用户增长曲线" width="700">
+</picture>
+
 ## 它是怎么运作的？
 
 1. **填写问卷** — 无需注册，直接开始。8 个部分、31 道题，大约 10 分钟完成
