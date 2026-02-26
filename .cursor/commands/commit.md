@@ -1,0 +1,1 @@
+根据 git 记录生成 commit message，注意风格和 gitlog 保持一致
