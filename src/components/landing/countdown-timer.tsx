@@ -44,7 +44,7 @@ function TimeBlock({ value, label }: { value: number; label: string }) {
   );
 }
 
-export function CountdownTimer({ participantCount }: { participantCount: number }) {
+export function CountdownTimer() {
   const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(getNextTuesday9pm()));
   const [mounted, setMounted] = useState(false);
 
@@ -81,11 +81,6 @@ export function CountdownTimer({ participantCount }: { participantCount: number 
         <span className="text-xl text-white/30 -mt-4">:</span>
         <TimeBlock value={timeLeft.seconds} label="秒" />
       </div>
-      {participantCount > 0 && (
-        <p className="text-xs sm:text-sm text-white/40 mt-1">
-          已有 <span className="text-white/70 font-medium">{participantCount}+</span> 人完成测试
-        </p>
-      )}
     </div>
   );
 }
