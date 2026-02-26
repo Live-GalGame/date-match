@@ -11,12 +11,13 @@ export function Hero({ code, participantCount }: { code?: string; participantCou
       <div className="absolute inset-0 bg-[url('/stars.svg')] opacity-30 bg-repeat" />
 
       <nav className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-5 z-10">
-        <Link href="/" className="text-xl font-serif tracking-wide text-white/90 hover:text-white transition-colors">
+        <Link href="/" className="text-xl font-serif tracking-wide hover:text-white transition-colors" style={{ color: "rgba(255,255,255,0.9)" }}>
           关系基因匹配
         </Link>
         <Link
           href="/auth/signin"
-          className="px-5 py-2 rounded-full bg-white/10 backdrop-blur-sm text-white text-sm border border-white/20 hover:bg-white/20 transition-all"
+          className="px-5 py-2 rounded-full text-white text-sm transition-all"
+          style={{ backgroundColor: "rgba(255,255,255,0.1)", borderWidth: 1, borderColor: "rgba(255,255,255,0.2)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
         >
           已测试，去登录
         </Link>
@@ -26,9 +27,9 @@ export function Hero({ code, participantCount }: { code?: string; participantCou
         <h1 className="text-4xl md:text-5xl font-serif leading-tight mb-6">
           不止于相遇，
           <br />
-          <span className="text-white/80">致力于相知。</span>
+          <span style={{ color: "rgba(255,255,255,0.8)" }}>致力于相知。</span>
         </h1>
-        <p className="text-lg md:text-xl text-white/70 mb-8 max-w-lg mx-auto">
+        <p className="text-lg md:text-xl mb-8 max-w-lg mx-auto" style={{ color: "rgba(255,255,255,0.7)" }}>
           基于心理学的深度兼容性测试，每周为你匹配一位灵魂契合的人。
         </p>
         <Link
