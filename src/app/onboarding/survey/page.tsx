@@ -20,6 +20,7 @@ import { VersionSelector } from "@/components/survey/version-selector";
 import { DeepIntro } from "@/components/survey/deep-intro";
 import { LiteSurveyFlow } from "@/components/survey/lite-survey-flow";
 import { DeepSurveyFlow } from "@/components/survey/deep-survey-flow";
+import { NeptuneSurveyFlow } from "@/components/survey/neptune-survey-flow";
 import { EmailStep } from "@/components/survey/email-step";
 import { SubmittedState } from "@/components/survey/submitted-state";
 
@@ -68,7 +69,7 @@ function SurveyPageInner() {
   const [genderDone, setGenderDone] = useState(Boolean(savedState.genderDone));
 
   const [selectedVersion, setSelectedVersion] = useState<VersionId | null>(
-    savedState.selectedVersion === "v3-lite" || savedState.selectedVersion === "v2" ? savedState.selectedVersion : null
+    savedState.selectedVersion === "v3-lite" || savedState.selectedVersion === "v2" || savedState.selectedVersion === "neptune" ? savedState.selectedVersion : null
   );
   const [currentIndex, setCurrentIndex] = useState(typeof savedState.currentIndex === "number" ? savedState.currentIndex : 0);
   const [answers, setAnswers] = useState<Answers>(savedState.answers && typeof savedState.answers === "object" ? savedState.answers : {});
@@ -207,6 +208,15 @@ function SurveyPageInner() {
 
   if (!selectedVersion) {
     return <VersionSelector onSelect={setSelectedVersion} />;
+  }
+
+  if (selectedVersion === "neptune") {
+    return (
+      <NeptuneSurveyFlow
+        displayName={displayName}
+        onBack={() => setSelectedVersion(null)}
+      />
+    );
   }
 
   if (showDeepIntro) {

@@ -136,6 +136,24 @@ type StatsData = {
     count: number;
     names: string[];
   };
+  neptuneStats: {
+    totalResponses: number;
+    mbtiDistribution: Record<string, number>;
+    zodiacDistribution: Record<string, number>;
+    questionStats: {
+      id: string;
+      question: string;
+      type: string;
+      totalResponses: number;
+      options: { value: string; label: string; count: number }[];
+    }[];
+    participants: {
+      displayName: string;
+      mbti: string;
+      zodiac: string;
+      createdAt: string;
+    }[];
+  };
   referralStats: Record<string, { total: number; verified: number }>;
   userList: {
     email: string;
@@ -247,6 +265,11 @@ function Dashboard({ data }: { data: StatsData }) {
             </div>
           )}
         </section>
+
+        {/* Neptune challenge stats */}
+        {data.neptuneStats.totalResponses > 0 && (
+          <NeptuneSection stats={data.neptuneStats} />
+        )}
 
         {/* User list */}
         <UserTable users={data.userList} />
@@ -809,6 +832,81 @@ function UserTable({ users }: { users: UserRow[] }) {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function NeptuneSection({ stats }: { stats: StatsData["neptuneStats"] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <section className="space-y-6">
+      <div className="flex items-center gap-3">
+        <h2 className="text-lg font-serif flex items-center gap-2">
+          <span>🔱</span> 海王星挑战
+        </h2>
+        <span className="px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-700">
+          {stats.totalResponses} 人参与
+        </span>
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <DistributionTable title="MBTI 分布" data={stats.mbtiDistribution} />
+        <DistributionTable title="星座分布" data={stats.zodiacDistribution} />
+      </div>
+
+      <div className="space-y-6">
+        <h3 className="text-base font-serif text-foreground/80">答题分布</h3>
+        {stats.questionStats.map((q) => (
+          <QuestionCard key={q.id} question={q} />
+        ))}
+      </div>
+
+      {stats.participants.length > 0 && (
+        <div>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+          >
+            <span className={`transition-transform ${expanded ? "rotate-90" : ""}`}>▶</span>
+            参与者明细（{stats.participants.length} 人）
+          </button>
+
+          {expanded && (
+            <div className="mt-3 bg-card rounded-2xl border border-border shadow-sm overflow-x-auto">
+              <table className="w-full text-sm whitespace-nowrap">
+                <thead>
+                  <tr className="text-left text-muted-foreground border-b border-border">
+                    <th className="px-4 py-3 font-medium">#</th>
+                    <th className="px-4 py-3 font-medium">昵称</th>
+                    <th className="px-4 py-3 font-medium">MBTI</th>
+                    <th className="px-4 py-3 font-medium">星座</th>
+                    <th className="px-4 py-3 font-medium">时间</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.participants.map((p, i) => (
+                    <tr key={i} className="border-t border-border/50">
+                      <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
+                      <td className="px-4 py-2.5 font-medium">{p.displayName}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-700">
+                          {p.mbti || "-"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">{p.zodiac || "-"}</td>
+                      <td className="px-4 py-2.5 text-muted-foreground">
+                        {new Date(p.createdAt).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}{" "}
+                        {new Date(p.createdAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </section>

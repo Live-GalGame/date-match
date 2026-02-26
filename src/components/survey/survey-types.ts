@@ -1,5 +1,5 @@
 export type Answers = Record<string, number | string | string[]>;
-export type VersionId = "v3-lite" | "v2";
+export type VersionId = "v3-lite" | "v2" | "neptune";
 
 export type Gender = "" | "男" | "女" | "其他";
 export type OtherGenderOption = "" | "不愿意透露" | "武装直升机";

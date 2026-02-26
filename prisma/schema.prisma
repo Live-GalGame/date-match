@@ -124,6 +124,15 @@ model HelicopterPilot {
   createdAt   DateTime @default(now())
 }
 
+model NeptuneResponse {
+  id          String   @id @default(cuid())
+  displayName String
+  mbti        String   @default("")
+  zodiac      String   @default("")
+  answers     String   @default("{}")
+  createdAt   DateTime @default(now())
+}
+
 model Match {
   id              String   @id @default(cuid())
   user1Id         String
