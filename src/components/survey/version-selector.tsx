@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { VersionId } from "./survey-types";
 
 interface VersionSelectorProps {
@@ -7,7 +9,25 @@ interface VersionSelectorProps {
 }
 
 export function VersionSelector({ onSelect }: VersionSelectorProps) {
+  const [showArrow, setShowArrow] = useState(false);
+
+  useEffect(() => {
+    // Only show on small screens where the deep survey card is below fold
+    const mq = window.matchMedia("(max-width: 767px)");
+    if (!mq.matches) return;
+
+    setShowArrow(true);
+
+    const onScroll = () => {
+      // Hide once user scrolls down enough to see the deep survey card
+      if (window.scrollY > 120) setShowArrow(false);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
+    <>
     <div className="animate-fade-in">
       <div className="text-center mb-10">
         <h1 className="text-3xl sm:text-4xl font-serif mb-3">选择你的测试版本</h1>
@@ -82,6 +102,26 @@ export function VersionSelector({ onSelect }: VersionSelectorProps) {
           </div>
         </button>
       </div>
+
     </div>
+
+    {/* Mobile scroll hint — rendered via portal to escape animate-fade-in transform */}
+    {showArrow && createPortal(
+      <button
+        type="button"
+        aria-label="向下滑动查看更多"
+        onClick={() => { window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" }); setShowArrow(false); }}
+        className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-1.5 animate-bounce md:hidden"
+      >
+        <span className="text-sm font-medium text-primary-foreground bg-primary/90 backdrop-blur-sm px-4 py-1.5 rounded-full shadow-md border border-primary/60">
+          下滑查看深度版 🔬
+        </span>
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>,
+      document.body
+    )}
+    </>
   );
 }
