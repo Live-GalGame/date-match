@@ -13,30 +13,30 @@
 <rect width="800" height="400" rx="14" fill="#fff"/>
 
 <text x="400" y="30" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="17" font-weight="700" fill="#1f2937">Date-Match 用户增长</text>
-<text x="400" y="50" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="12" fill="#9ca3af">累计 1,694 位用户 · 上线 4 天</text>
+<text x="400" y="50" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="12" fill="#9ca3af">累计 3,554 位用户 · 上线 4 天</text>
 
 <line x1="65" y1="350.0" x2="750" y2="350.0" stroke="#e5e7eb" stroke-width="1"/>
 <text x="55" y="354.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">0</text>
 <line x1="65" y1="294.0" x2="750" y2="294.0" stroke="#f3f4f6" stroke-width="1"/>
-<text x="55" y="298.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">400</text>
+<text x="55" y="298.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">1,000</text>
 <line x1="65" y1="238.0" x2="750" y2="238.0" stroke="#f3f4f6" stroke-width="1"/>
-<text x="55" y="242.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">800</text>
+<text x="55" y="242.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">2,000</text>
 <line x1="65" y1="182.0" x2="750" y2="182.0" stroke="#f3f4f6" stroke-width="1"/>
-<text x="55" y="186.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">1,200</text>
+<text x="55" y="186.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">3,000</text>
 <line x1="65" y1="126.0" x2="750" y2="126.0" stroke="#f3f4f6" stroke-width="1"/>
-<text x="55" y="130.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">1,600</text>
+<text x="55" y="130.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">4,000</text>
 <line x1="65" y1="70.0" x2="750" y2="70.0" stroke="#f3f4f6" stroke-width="1"/>
-<text x="55" y="74.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">2,000</text>
-<path d="M65.0,348.5C133.5,345.4,156.3,344.4,293.3,338.4C430.3,332.4,384.7,350.0,521.7,328.4C658.7,260.8,681.5,177.5,750.0,112.8L750.0,350L65.0,350Z" fill="url(#ag)"/>
-<path d="M65.0,348.5C133.5,345.4,156.3,344.4,293.3,338.4C430.3,332.4,384.7,350.0,521.7,328.4C658.7,260.8,681.5,177.5,750.0,112.8" fill="none" stroke="url(#lg)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-<circle cx="65.0" cy="348.5" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
-<text x="65.0" y="336.5" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">11</text>
-<circle cx="293.3" cy="338.4" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
-<text x="293.3" y="326.4" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">83</text>
-<circle cx="521.7" cy="328.4" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
-<text x="521.7" y="316.4" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">154</text>
-<circle cx="750.0" cy="112.8" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
-<text x="750.0" y="100.8" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">1,694</text>
+<text x="55" y="74.0" text-anchor="end" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#b0b0b0">5,000</text>
+<path d="M65.0,349.4C133.5,348.2,156.3,347.8,293.3,345.4C430.3,342.9,384.7,350.0,521.7,341.4C658.7,283.1,681.5,208.1,750.0,151.0L750.0,350L65.0,350Z" fill="url(#ag)"/>
+<path d="M65.0,349.4C133.5,348.2,156.3,347.8,293.3,345.4C430.3,342.9,384.7,350.0,521.7,341.4C658.7,283.1,681.5,208.1,750.0,151.0" fill="none" stroke="url(#lg)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="65.0" cy="349.4" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
+<text x="65.0" y="337.4" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">11</text>
+<circle cx="293.3" cy="345.4" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
+<text x="293.3" y="333.4" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">83</text>
+<circle cx="521.7" cy="341.4" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
+<text x="521.7" y="329.4" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">154</text>
+<circle cx="750.0" cy="151.0" r="4.5" fill="#fff" stroke="#f43f5e" stroke-width="2"/>
+<text x="750.0" y="139.0" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="11" font-weight="600" fill="#e11d48">3,554</text>
 <text x="65.0" y="370.0" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#9ca3af">2/23</text>
 <text x="293.3" y="370.0" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#9ca3af">2/24</text>
 <text x="521.7" y="370.0" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', sans-serif" font-size="10" fill="#9ca3af">2/25</text>
