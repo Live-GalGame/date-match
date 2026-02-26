@@ -18,6 +18,7 @@ export interface PersistedSurveyState {
   displayName: string;
   education: string;
   schoolTier: string;
+  matchStrategy?: string;
 }
 
 export function loadPersistedSurveyState(): Partial<PersistedSurveyState> {

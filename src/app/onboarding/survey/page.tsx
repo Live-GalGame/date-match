@@ -77,6 +77,7 @@ function SurveyPageInner() {
   const [displayName, setDisplayName] = useState(savedState.displayName || "");
   const [education, setEducation] = useState(savedState.education || "");
   const [schoolTier, setSchoolTier] = useState(savedState.schoolTier || "");
+  const [matchStrategy, setMatchStrategy] = useState(savedState.matchStrategy || "");
 
   // ─── UI state ───
   const [submitted, setSubmitted] = useState(false);
@@ -95,10 +96,10 @@ function SurveyPageInner() {
       localStorage.setItem("surveyState", JSON.stringify({
         answers, liteAnswers, selectedVersion, currentIndex,
         gender, otherGender, datingPreference, genderDone,
-        email, displayName, education, schoolTier,
+        email, displayName, education, schoolTier, matchStrategy,
       }));
     } catch (e) { console.error("Failed to save survey state:", e); }
-  }, [answers, liteAnswers, selectedVersion, currentIndex, gender, otherGender, datingPreference, genderDone, email, displayName, education, schoolTier, submitted]);
+  }, [answers, liteAnswers, selectedVersion, currentIndex, gender, otherGender, datingPreference, genderDone, email, displayName, education, schoolTier, matchStrategy, submitted]);
 
   // ─── Mutations ───
   const mutation = trpc.survey.submitPublic.useMutation({
@@ -154,9 +155,9 @@ function SurveyPageInner() {
   }
 
   function handleSubmit() {
-    if (!email || !displayName || !education || !schoolTier) return;
+    if (!email || !displayName || !education || !schoolTier || !matchStrategy) return;
     setEmailSendIssue(null);
-    const mergedAnswers = { ...liteAnswers, ...answers };
+    const mergedAnswers = { ...liteAnswers, ...answers, matchStrategy };
     const versionTag = hasLiteData ? "v3-lite+v2" : (selectedVersion ?? undefined);
     const submitGender = gender === "其他" ? otherGender : gender;
     mutation.mutate({
@@ -241,6 +242,7 @@ function SurveyPageInner() {
         displayName={displayName} setDisplayName={setDisplayName}
         education={education} setEducation={setEducation}
         schoolTier={schoolTier} setSchoolTier={setSchoolTier}
+        matchStrategy={matchStrategy} setMatchStrategy={setMatchStrategy}
         email={email} setEmail={setEmail}
         honeypot={honeypot} setHoneypot={setHoneypot}
         turnstileRef={turnstileRef}

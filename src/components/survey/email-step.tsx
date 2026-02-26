@@ -12,6 +12,8 @@ interface EmailStepProps {
   setEducation: (v: string) => void;
   schoolTier: string;
   setSchoolTier: (v: string) => void;
+  matchStrategy: string;
+  setMatchStrategy: (v: string) => void;
   email: string;
   setEmail: (v: string) => void;
   honeypot: string;
@@ -29,6 +31,7 @@ export function EmailStep({
   displayName, setDisplayName,
   education, setEducation,
   schoolTier, setSchoolTier,
+  matchStrategy, setMatchStrategy,
   email, setEmail,
   honeypot, setHoneypot,
   turnstileRef, setTurnstileToken,
@@ -126,6 +129,59 @@ export function EmailStep({
         </div>
 
         <div>
+          <label className="block text-sm font-medium mb-2">你的理想匹配策略是什么？</label>
+          <div className="bg-muted/50 p-4 rounded-xl mb-4 text-sm text-muted-foreground leading-relaxed">
+            <span className="font-medium text-foreground">非常重要：</span>
+            在 date-match 中，我们致力于为你找到心仪的 date 对象。由于当前社区环境竞争激烈，选择一个合适的匹配策略，将直接影响你获得约会机会的多少和质量。请告诉我们，你希望你和你心仪的 date 对象，最多同时与多少人进行匹配互动？
+          </div>
+          
+          <div className="space-y-3">
+            {[
+              { 
+                value: "1", 
+                title: "一对一模式 (高排他性)",
+                name: "唯一焦点",
+                desc: "“我希望在任意时间只与一位 date 对象深入互动，也希望对方同样如此。我追求高质量、高专注度的交流。”",
+                logic: "系统会优先将你与同样选择“唯一焦点”的用户匹配。优点是匹配成功后，你们的互动将是排他的，关系更稳定。缺点是在当前环境下，这可能会让你等待更长时间，甚至错失很多潜在机会。"
+              },
+              { 
+                value: "2-3", 
+                title: "少数匹配模式 (中等排他性)",
+                name: "精选列表",
+                desc: "“我可以接受和少数几位（比如 2-3 位）date 对象同时沟通，以寻找最合适的人。我也理解对方可能同样在少数几人中做选择。”",
+                logic: "这是大多数用户的默认选择，平衡了机会和专注度。系统会为你推荐一个小的候选池。优点是为你提供了比较和选择的空间，同时不会过于分散精力。缺点是你和你的 date 对象都面临一定的竞争。"
+              },
+              { 
+                value: "4+", 
+                title: "开放匹配模式 (低排他性)",
+                name: "广撒网，多选择",
+                desc: "“我不介意和多位 date 对象同时互动，也接受对方这样做。我相信更多的选择能帮我更快找到那个‘对的人’。”",
+                logic: "系统会最大化你的曝光度和匹配数量。优点是你能接触到最多的潜在 date 对象，机会最多。缺点是竞争也最激烈，你心仪的对象可能同时在和非常多的人互动，你需要付出更多努力才能脱颖而出。"
+              },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setMatchStrategy(opt.value)}
+                className={cn(
+                  "w-full text-left p-4 rounded-xl border transition-all",
+                  matchStrategy === opt.value ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border bg-card hover:border-primary/40"
+                )}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="font-medium">{opt.title}</div>
+                  <div className={cn("text-xs font-medium px-2 py-0.5 rounded-md", matchStrategy === opt.value ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
+                    {opt.name}
+                  </div>
+                </div>
+                <div className="text-sm text-foreground/90 italic mb-2">{opt.desc}</div>
+                <div className="text-xs text-muted-foreground"><span className="font-medium">匹配逻辑：</span>{opt.logic}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
           <label htmlFor="email" className="block text-sm font-medium mb-2">邮箱地址</label>
           <input
             id="email"
@@ -163,7 +219,7 @@ export function EmailStep({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={isPending || !email || !displayName || !education || !schoolTier}
+          disabled={isPending || !email || !displayName || !education || !schoolTier || !matchStrategy}
           className="flex-1 py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors disabled:opacity-50"
         >
           {isPending ? "提交中..." : "提交问卷"}
