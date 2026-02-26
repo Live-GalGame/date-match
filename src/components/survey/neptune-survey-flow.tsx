@@ -215,7 +215,7 @@ export function NeptuneSurveyFlow({ displayName, onBack }: NeptuneSurveyFlowProp
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">你的 MBTI</label>
+            <label className="block text-sm font-medium mb-2">你的 MBTI <span className="text-xs text-muted-foreground font-normal">（选填）</span></label>
             <div className="grid grid-cols-4 gap-2">
               {MBTI_TYPES.map((type) => (
                 <button
@@ -235,7 +235,7 @@ export function NeptuneSurveyFlow({ displayName, onBack }: NeptuneSurveyFlowProp
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">你的星座</label>
+            <label className="block text-sm font-medium mb-2">你的星座 <span className="text-xs text-muted-foreground font-normal">（选填）</span></label>
             <div className="grid grid-cols-4 gap-2">
               {ZODIAC_SIGNS.map((sign) => (
                 <button
