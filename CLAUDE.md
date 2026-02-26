@@ -8,6 +8,41 @@
 
 **线上地址：** https://www.date-match.online（阿里云国内域名）/ https://date-match.vercel.app（Vercel 默认）
 
+## 技术栈
+
+| 类别 | 技术 | 版本 |
+|------|------|------|
+| 框架 | Next.js (App Router) | 16 |
+| 前端 | React | 19 |
+| 样式 | Tailwind CSS + shadcn/ui (Radix) | 4 |
+| API 层 | tRPC + React Query | 11 / 5 |
+| ORM | Prisma + @prisma/adapter-libsql | 7 |
+| 数据库 | SQLite (本地) / Turso LibSQL (生产) | — |
+| 认证 | Better Auth (Magic Link) | 1.4 |
+| 邮件 | Resend | 6 |
+| 验证码 | Cloudflare Turnstile | — |
+| 校验 | Zod | 4 |
+| 序列化 | SuperJSON | — |
+| 包管理 | pnpm | — |
+| 部署 | Vercel (Serverless) | — |
+
+**路径别名：** `@/*` → `./src/*`（tsconfig.json）
+**Prisma Client 输出：** `src/generated/prisma`（非默认 node_modules 位置）
+
+## 开发命令
+
+```bash
+pnpm dev          # 启动开发服务器（Turbopack）
+pnpm build        # 生产构建
+pnpm lint         # ESLint 检查（eslint-config-next）
+pnpm start        # 启动生产服务
+npx prisma generate  # 重新生成 Prisma Client（schema 变更后必须执行）
+npx prisma db push   # 同步 schema 到本地 SQLite
+npx prisma studio    # 打开数据库可视化界面
+```
+
+**注意：** 无 TypeScript 单独 typecheck 脚本，`pnpm build` 内置 tsc 检查。无单元测试框架。
+
 ## 部署架构
 
 | 服务 | 用途 | 配置位置 |
@@ -64,12 +99,14 @@ vercel deploy --prod
 ## 关键架构决策
 
 1. **全 JSON 存储问卷答案**：`SurveyResponse.answers` 是 JSON 字符串 `{ questionId: value }`，所有题型的答案都存在这个字段里。`coreValues` 字段保留但目前为空，历史遗留。
-2. **多版本问卷系统**：问卷定义在 `src/lib/survey-versions/` 下按版本拆分（v1.ts、v2.ts…），`src/lib/survey-questions.ts` 是薄切换层——**修改一行 import 即可切换版本**。每个版本文件同时包含题目定义和匹配维度配置。
+2. **多版本问卷系统**：问卷定义在 `src/lib/survey-versions/` 下按版本拆分（v1、v2、v3-lite），`src/lib/survey-questions.ts` 维护一个 `versions` 注册表，支持运行时按 ID 查询版本。v2 为默认激活版本（导出为 `surveySections` / `matchingConfig`），用户可在前端选择深度版(v2)或轻量版(v3-lite)。
 3. **问卷定义与 UI 分离**：UI 组件在 `src/components/survey/` 下按题型拆分，页面 `src/app/onboarding/survey/page.tsx` 根据 `question.type` 动态渲染。
 4. **匹配算法是配置驱动的纯函数**：`src/server/matching/algorithm.ts` 不依赖数据库，从当前活跃版本读取维度权重和硬过滤规则，自动适配。
 5. **tRPC 统一 API**：所有前后端通信走 tRPC，路由定义在 `src/server/api/routers/`。无裸 fetch 调用。
 6. **问卷无需登录**：用户直接填写问卷，最后一步通过 `submitPublic`（公开 procedure）提交邮箱 + 答案，自动创建用户并 opt-in 匹配。
-7. **LibSQL adapter + Turso**：Prisma 使用 `@prisma/adapter-libsql`，本地开发用 `file:./dev.db`，生产连接 Turso 云端数据库。
+7. **LibSQL adapter + Turso**：Prisma 使用 `@prisma/adapter-libsql`，本地开发用 `file:./prisma/dev.db`，生产连接 Turso 云端数据库。
+8. **Cloudflare Turnstile 防刷**：问卷提交时验证 Turnstile token（`src/lib/turnstile.ts`），防止恶意批量提交。
+9. **双流程问卷**：前端支持深度版（`deep-survey-flow.tsx`，v2）和轻量版（`lite-survey-flow.tsx`，v3-lite）两条流程，用户可通过 `version-selector.tsx` 切换。
 
 ## 用户流程
 
@@ -87,8 +124,9 @@ vercel deploy --prod
 |------|------|
 | `src/lib/survey-versions/types.ts` | 共享类型定义（QuestionType、SurveySection、MatchingConfig 等） |
 | `src/lib/survey-versions/v1.ts` | 基础版问卷 + 匹配配置 |
-| `src/lib/survey-versions/v2.ts` | 深度版问卷 + 匹配配置（当前激活） |
-| `src/lib/survey-questions.ts` | **切换层**——改一行 import 切换版本，同时导出 helper 函数 |
+| `src/lib/survey-versions/v2.ts` | 深度版问卷 + 匹配配置（默认激活版本） |
+| `src/lib/survey-versions/v3-lite.ts` | 轻量版问卷 + 匹配配置（精简题目） |
+| `src/lib/survey-questions.ts` | **版本注册表**——维护 `versions` Map，导出 `getSurveyVersion(id)` / `getQuestionById(id)` 等 helper |
 
 ### 修改问卷时需要改的文件
 
@@ -99,6 +137,91 @@ vercel deploy --prod
 | `src/components/survey/*.tsx` | 各题型的 UI 组件 | 修改渲染逻辑、样式 |
 | `src/app/onboarding/survey/page.tsx` | 问卷页面（渲染 + 导航 + 邮箱收集） | 新题型需要加 `if (q.type === "xxx")` 分支 |
 | `src/server/matching/algorithm.ts` | 匹配计算（配置驱动） | 新评分器类型需加 SCORER_MAP |
+
+### tRPC 路由
+
+定义在 `src/server/api/routers/`，统一入口 `src/server/api/root.ts`：
+
+| 路由 | 文件 | 说明 |
+|------|------|------|
+| `survey` | `survey.ts` | 问卷提交（含 `submitPublic` 公开 procedure）、答案查询 |
+| `profile` | `profile.ts` | 用户资料 CRUD |
+| `qualification` | `qualification.ts` | 学历认证提交/查询 |
+| `match` | `match.ts` | 匹配结果查询 |
+| `analytics` | `analytics.ts` | 数据统计（metrics 页面用，含用户表、漏斗数据等） |
+
+### API 路由（Next.js Route Handlers）
+
+| 路径 | 说明 |
+|------|------|
+| `src/app/api/trpc/[...trpc]/` | tRPC HTTP handler |
+| `src/app/api/auth/[...all]/` | Better Auth 路由（Magic Link 等） |
+| `src/app/api/match/` | 匹配触发入口（Bearer token 鉴权） |
+| `src/app/api/admin/` | 管理接口 |
+| `src/app/api/verify-email/` | 邮箱验证回调 |
+
+### 页面路由
+
+| 路径 | 说明 |
+|------|------|
+| `/` | 首页（Hero + 倒计时 + 流程说明） |
+| `/onboarding/survey` | 问卷填写（主流程） |
+| `/onboarding/profile` | 个人资料填写 |
+| `/onboarding/qualification` | 学历认证 |
+| `/auth` | 登录页 |
+| `/dashboard` | 用户面板（需登录） |
+| `/email-verified` | 邮箱验证成功页 |
+| `/metrics` | 数据统计面板 |
+| `/metrics/user` | 用户明细表 |
+
+### 前端组件
+
+#### 问卷组件 `src/components/survey/`
+
+| 文件 | 作用 |
+|------|------|
+| `version-selector.tsx` | 问卷版本选择（深度版/轻量版） |
+| `deep-survey-flow.tsx` | 深度版问卷流程容器 |
+| `lite-survey-flow.tsx` | 轻量版问卷流程容器 |
+| `deep-intro.tsx` | 深度版问卷介绍页 |
+| `gender-step.tsx` | 性别/择偶偏好选择步骤 |
+| `email-step.tsx` | 邮箱收集步骤（含匹配策略选择） |
+| `submitted-state.tsx` | 提交成功后的感谢页/海报 |
+| `poster.tsx` | 分享海报生成（截图功能） |
+| `survey-types.ts` | 问卷前端共享类型 |
+| `slider-input.tsx` | 滑块题型 UI |
+| `single-select.tsx` | 单选题型 UI |
+| `tag-selector.tsx` | 标签多选题型 UI |
+| `ranking-selector.tsx` | 排序题型 UI |
+| `text-input.tsx` | 开放文本题型 UI |
+| `emoji-card-select.tsx` | Emoji 卡片选择器（单选变体） |
+
+#### 首页组件 `src/components/landing/`
+
+| 文件 | 作用 |
+|------|------|
+| `hero.tsx` | 首页 Hero 区域 |
+| `countdown-timer.tsx` | 匹配倒计时 + 实时参与人数 |
+| `how-it-works.tsx` | 「怎么玩」流程说明 |
+| `footer.tsx` | 页脚 |
+
+### 邮件系统
+
+| 文件 | 作用 |
+|------|------|
+| `src/server/email/send-match.ts` | 发送匹配结果邮件 |
+| `src/server/email/send-confirmation.ts` | 发送问卷提交确认邮件 |
+| `src/lib/auth.ts` | Better Auth 配置（含 Magic Link 邮件模板） |
+
+### 其他工具文件
+
+| 文件 | 作用 |
+|------|------|
+| `src/lib/turnstile.ts` | Cloudflare Turnstile 验证码校验 |
+| `src/lib/poster-profile.ts` | 分享海报个性档案数据生成 |
+| `src/lib/utils.ts` | 通用工具函数（cn class merge） |
+| `src/lib/trpc.ts` | tRPC 客户端创建 |
+| `src/components/providers.tsx` | tRPC + React Query Provider 包装 |
 
 ### 修改认证时需要改的文件
 
