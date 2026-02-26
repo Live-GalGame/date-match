@@ -108,13 +108,13 @@ export function VersionSelector({ onSelect }: VersionSelectorProps) {
         <button
           type="button"
           onClick={() => onSelect("neptune")}
-          className="group inline-flex items-center gap-2 px-5 py-3 rounded-full border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 hover:border-indigo-300 dark:hover:border-indigo-700 transition-all"
+          className="group inline-flex items-center gap-2 px-5 py-3 rounded-full bg-indigo-600 hover:bg-indigo-700 transition-colors shadow-sm"
         >
           <span className="text-xl">🔱</span>
-          <span className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+          <span className="text-sm font-medium text-white">
             挑战一下自己的直觉？猜猜别人是怎么填写的
           </span>
-          <span className="text-indigo-400 group-hover:translate-x-0.5 transition-transform">→</span>
+          <span className="text-indigo-200 group-hover:translate-x-0.5 transition-transform">→</span>
         </button>
       </div>
 

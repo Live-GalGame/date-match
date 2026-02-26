@@ -129,7 +129,7 @@ export function NeptuneSurveyFlow({ displayName, onBack }: NeptuneSurveyFlowProp
           <p className="text-sm leading-relaxed">
             下面有 <strong>9 道</strong>来自我们真实问卷的题目，但这次——
           </p>
-          <p className="text-base font-serif text-indigo-700 dark:text-indigo-300">
+          <p className="text-base font-serif text-black bg-white shadow-md rounded-lg px-3 py-2">
             你要猜的不是自己的答案，而是大多数人会怎么选。
           </p>
           <p className="text-xs text-muted-foreground">
@@ -313,8 +313,8 @@ export function NeptuneSurveyFlow({ displayName, onBack }: NeptuneSurveyFlowProp
         </div>
       </div>
 
-      <div className="mb-3 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800">
-        <p className="text-xs text-indigo-600 dark:text-indigo-400 text-center">
+      <div className="mb-3 px-3 py-2 rounded-lg bg-red-900 border border-red-800">
+        <p className="text-sm font-bold text-white text-center">
           你觉得大多数人会怎么选？
         </p>
       </div>
