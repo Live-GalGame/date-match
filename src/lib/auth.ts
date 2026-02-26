@@ -10,6 +10,15 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: false,
   },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          return { data: { ...user, email: user.email.toLowerCase().trim() } };
+        },
+      },
+    },
+  },
   plugins: [
     magicLink({
       sendMagicLink: async ({ email, url }) => {

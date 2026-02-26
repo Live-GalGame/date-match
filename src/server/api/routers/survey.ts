@@ -110,7 +110,9 @@ export const surveyRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid submission" });
       }
 
-      const domain = input.email.split("@")[1]?.toLowerCase();
+      const email = input.email.toLowerCase().trim();
+
+      const domain = email.split("@")[1];
       if (!domain || BLOCKED_EMAIL_DOMAINS.has(domain)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "请使用有效的邮箱地址" });
       }
@@ -131,7 +133,7 @@ export const surveyRouter = createTRPCRouter({
       // Same-email cooldown: 1 min
       const oneMinAgo = new Date(Date.now() - 60 * 1000);
       const recentEmailSubmit = await ctx.db.verification.count({
-        where: { identifier: input.email, createdAt: { gte: oneMinAgo } },
+        where: { identifier: email, createdAt: { gte: oneMinAgo } },
       });
       if (recentEmailSubmit > 0) {
         throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "提交过于频繁，请 1 分钟后再试" });
@@ -161,9 +163,9 @@ export const surveyRouter = createTRPCRouter({
       };
 
       const user = await ctx.db.user.upsert({
-        where: { email: input.email },
+        where: { email },
         create: {
-          email: input.email,
+          email,
           name: input.displayName,
           referralCode: input.referralCode ?? "",
         },
@@ -215,7 +217,7 @@ export const surveyRouter = createTRPCRouter({
 
       await ctx.db.verification.create({
         data: {
-          identifier: input.email,
+          identifier: email,
           value: token,
           expiresAt,
         },
@@ -228,7 +230,7 @@ export const surveyRouter = createTRPCRouter({
       let emailSent = true;
       try {
         await sendConfirmationEmail({
-          toEmail: input.email,
+          toEmail: email,
           displayName: input.displayName,
           verifyUrl,
         });
@@ -246,7 +248,9 @@ export const surveyRouter = createTRPCRouter({
       turnstileToken: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const domain = input.email.split("@")[1]?.toLowerCase();
+      const email = input.email.toLowerCase().trim();
+
+      const domain = email.split("@")[1];
       if (!domain || BLOCKED_EMAIL_DOMAINS.has(domain)) {
         return { success: true };
       }
@@ -261,7 +265,7 @@ export const surveyRouter = createTRPCRouter({
       const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
       const recentCount = await ctx.db.verification.count({
         where: {
-          identifier: input.email,
+          identifier: email,
           createdAt: { gte: oneHourAgo },
         },
       });
@@ -270,7 +274,7 @@ export const surveyRouter = createTRPCRouter({
       }
 
       const user = await ctx.db.user.findUnique({
-        where: { email: input.email },
+        where: { email },
         select: { id: true, name: true },
       });
 
@@ -283,7 +287,7 @@ export const surveyRouter = createTRPCRouter({
 
       await ctx.db.verification.create({
         data: {
-          identifier: input.email,
+          identifier: email,
           value: token,
           expiresAt,
         },
@@ -294,7 +298,7 @@ export const surveyRouter = createTRPCRouter({
       const verifyUrl = `${baseUrl}/api/verify-email?token=${token}`;
 
       await sendConfirmationEmail({
-        toEmail: input.email,
+        toEmail: email,
         displayName: user.name || "User",
         verifyUrl,
       });
