@@ -21,7 +21,7 @@ export function SingleSelect({
     <div className="py-6">
       <p className="font-serif text-lg mb-1">{question}</p>
       {note && (
-        <p className="text-xs text-muted-foreground mb-3 italic">{note}</p>
+        <p className="text-xs text-muted-foreground mb-3 italic whitespace-pre-line">{note}</p>
       )}
       <div className="flex flex-col gap-2 mt-3">
         {options.map((option) => (

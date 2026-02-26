@@ -32,7 +32,7 @@ export function EmojiCardSelect({
         {question}
       </h2>
       {note && (
-        <p className="text-xs text-muted-foreground text-center mb-6 italic">
+        <p className="text-xs text-muted-foreground text-center mb-6 italic whitespace-pre-line">
           {note}
         </p>
       )}

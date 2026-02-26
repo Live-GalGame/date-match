@@ -33,7 +33,7 @@ export function TagSelector({
     <div className="py-6">
       <p className="font-serif text-lg mb-1">{question}</p>
       {note && (
-        <p className="text-xs text-muted-foreground mb-2 italic">{note}</p>
+        <p className="text-xs text-muted-foreground mb-2 italic whitespace-pre-line">{note}</p>
       )}
       {!isUnlimited && (
         <p className="text-sm text-muted-foreground mb-4">

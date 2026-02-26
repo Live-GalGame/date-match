@@ -42,7 +42,7 @@ export function SliderInput({
     <div className="py-6">
       <p className="font-serif text-lg mb-1">{question}</p>
       {note && (
-        <p className="text-xs text-muted-foreground mb-4 italic">{note}</p>
+        <p className="text-xs text-muted-foreground mb-4 italic whitespace-pre-line">{note}</p>
       )}
 
       <div className="flex items-center justify-center mb-3">
