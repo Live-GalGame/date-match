@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import { trpc } from "@/lib/trpc";
 import { cn } from "@/lib/utils";
@@ -147,8 +148,8 @@ export function GenderStep({
     const totalCount = displayName.trim() ? pilotCount + 1 : pilotCount;
 
     return (
-      <div className="animate-fade-in">
-        {showHeliSplash && (
+      <>
+        {showHeliSplash && createPortal(
           <div
             className="fixed inset-0 z-[100] flex items-center justify-center backdrop-blur-xl animate-splash-overlay cursor-pointer"
             onClick={() => { setShowHeliSplash(false); if (heliSplashTimer.current) clearTimeout(heliSplashTimer.current); }}
@@ -157,9 +158,11 @@ export function GenderStep({
               <span className="text-[10rem] sm:text-[14rem] leading-none animate-splash-icon animate-heart-pulse">❤️</span>
               <span className="text-[10rem] sm:text-[14rem] leading-none animate-splash-icon" style={{ animationDelay: "0.3s" }}>🚁</span>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
+      <div className="animate-fade-in">
         <div className="fixed inset-0 z-40 pointer-events-none overflow-hidden">
           {floatingHelicopters.map((h) => (
             <div
@@ -180,9 +183,9 @@ export function GenderStep({
           </div>
 
           <div className="grid gap-4 mb-8">
-            {HELICOPTER_PHOTOS.map((src, i) => (
+            {HELICOPTER_PHOTOS.slice(0, 1).map((src, i) => (
               <div key={src} className="relative rounded-2xl overflow-hidden border-2 border-border shadow-lg">
-                <Image src={src} alt={`心动武装直升机 ${i + 1}`} width={700} height={400} className="w-full h-auto object-cover" priority={i === 0} />
+                <Image src={src} alt={`心动武装直升机 ${i + 1}`} width={700} height={400} className="w-full h-auto object-cover" priority />
                 <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
                   <p className="text-white font-medium text-sm">心动对象 #{i + 1}</p>
                 </div>
@@ -228,6 +231,7 @@ export function GenderStep({
           </button>
         </div>
       </div>
+      </>
     );
   }
 
