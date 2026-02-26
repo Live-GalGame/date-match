@@ -549,21 +549,199 @@ function ReferralTable({
 
 type UserRow = StatsData["userList"][number];
 
+type Filters = {
+  gender: Set<string>;
+  datingPreference: Set<string>;
+  education: Set<string>;
+  schoolTier: Set<string>;
+  surveyVersion: Set<string>;
+  referralCode: Set<string>;
+  status: Set<string>;
+};
+
+function getStatusTags(u: UserRow): string[] {
+  const tags: string[] = [];
+  if (u.completed) tags.push("已完成");
+  if (u.optedIn) tags.push("已匹配");
+  if (u.emailVerified) tags.push("已验证");
+  if (!u.completed && !u.optedIn && !u.emailVerified) tags.push("未完成");
+  return tags;
+}
+
+function uniqueValues(users: UserRow[], key: keyof UserRow): string[] {
+  const set = new Set<string>();
+  for (const u of users) {
+    const v = String(u[key] || "");
+    if (v) set.add(v);
+  }
+  return Array.from(set).sort();
+}
+
+function toggleInSet(set: Set<string>, value: string): Set<string> {
+  const next = new Set(set);
+  if (next.has(value)) next.delete(value);
+  else next.add(value);
+  return next;
+}
+
+function FilterGroup({
+  label,
+  options,
+  selected,
+  onToggle,
+}: {
+  label: string;
+  options: string[];
+  selected: Set<string>;
+  onToggle: (v: string) => void;
+}) {
+  if (options.length === 0) return null;
+  return (
+    <div className="flex items-start gap-2">
+      <span className="text-xs text-muted-foreground shrink-0 pt-1 w-10">{label}</span>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((opt) => (
+          <button
+            key={opt}
+            onClick={() => onToggle(opt)}
+            className={`px-2.5 py-1 rounded-full text-xs transition-colors ${
+              selected.has(opt)
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function UserTable({ users }: { users: UserRow[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<Filters>({
+    gender: new Set(),
+    datingPreference: new Set(),
+    education: new Set(),
+    schoolTier: new Set(),
+    surveyVersion: new Set(),
+    referralCode: new Set(),
+    status: new Set(),
+  });
   const router = useRouter();
+
+  const activeCount = Object.values(filters).reduce((sum, s) => sum + s.size, 0);
+
+  const filtered = users.filter((u) => {
+    if (filters.gender.size > 0 && !filters.gender.has(u.gender || "")) return false;
+    if (filters.datingPreference.size > 0 && !filters.datingPreference.has(u.datingPreference || "")) return false;
+    if (filters.education.size > 0 && !filters.education.has(u.education || "")) return false;
+    if (filters.schoolTier.size > 0 && !filters.schoolTier.has(u.schoolTier || "")) return false;
+    if (filters.surveyVersion.size > 0 && !filters.surveyVersion.has(u.surveyVersion || "")) return false;
+    if (filters.referralCode.size > 0 && !filters.referralCode.has(u.referralCode || "")) return false;
+    if (filters.status.size > 0) {
+      const tags = getStatusTags(u);
+      if (!tags.some((t) => filters.status.has(t))) return false;
+    }
+    return true;
+  });
+
+  const clearFilters = () =>
+    setFilters({
+      gender: new Set(),
+      datingPreference: new Set(),
+      education: new Set(),
+      schoolTier: new Set(),
+      surveyVersion: new Set(),
+      referralCode: new Set(),
+      status: new Set(),
+    });
 
   return (
     <section className="space-y-4">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center gap-2 text-lg font-serif hover:text-primary transition-colors"
-      >
-        <span className={`transition-transform ${expanded ? "rotate-90" : ""}`}>
-          ▶
-        </span>
-        用户明细（共 {users.length} 人）
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="flex items-center gap-2 text-lg font-serif hover:text-primary transition-colors"
+        >
+          <span className={`transition-transform ${expanded ? "rotate-90" : ""}`}>
+            ▶
+          </span>
+          用户明细（{filtered.length === users.length ? `共 ${users.length} 人` : `${filtered.length} / ${users.length} 人`}）
+        </button>
+        {expanded && (
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`px-3 py-1 rounded-full text-xs transition-colors ${
+              showFilters || activeCount > 0
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+          >
+            筛选{activeCount > 0 ? ` (${activeCount})` : ""}
+          </button>
+        )}
+      </div>
+
+      {expanded && showFilters && (
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">筛选条件</span>
+            {activeCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                清除全部
+              </button>
+            )}
+          </div>
+          <FilterGroup
+            label="性别"
+            options={uniqueValues(users, "gender")}
+            selected={filters.gender}
+            onToggle={(v) => setFilters((f) => ({ ...f, gender: toggleInSet(f.gender, v) }))}
+          />
+          <FilterGroup
+            label="择偶"
+            options={uniqueValues(users, "datingPreference")}
+            selected={filters.datingPreference}
+            onToggle={(v) => setFilters((f) => ({ ...f, datingPreference: toggleInSet(f.datingPreference, v) }))}
+          />
+          <FilterGroup
+            label="学历"
+            options={uniqueValues(users, "education")}
+            selected={filters.education}
+            onToggle={(v) => setFilters((f) => ({ ...f, education: toggleInSet(f.education, v) }))}
+          />
+          <FilterGroup
+            label="院校"
+            options={uniqueValues(users, "schoolTier")}
+            selected={filters.schoolTier}
+            onToggle={(v) => setFilters((f) => ({ ...f, schoolTier: toggleInSet(f.schoolTier, v) }))}
+          />
+          <FilterGroup
+            label="版本"
+            options={uniqueValues(users, "surveyVersion")}
+            selected={filters.surveyVersion}
+            onToggle={(v) => setFilters((f) => ({ ...f, surveyVersion: toggleInSet(f.surveyVersion, v) }))}
+          />
+          <FilterGroup
+            label="来源"
+            options={uniqueValues(users, "referralCode")}
+            selected={filters.referralCode}
+            onToggle={(v) => setFilters((f) => ({ ...f, referralCode: toggleInSet(f.referralCode, v) }))}
+          />
+          <FilterGroup
+            label="状态"
+            options={["已完成", "已匹配", "已验证", "未完成"]}
+            selected={filters.status}
+            onToggle={(v) => setFilters((f) => ({ ...f, status: toggleInSet(f.status, v) }))}
+          />
+        </div>
+      )}
 
       {expanded && (
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-x-auto">
@@ -584,7 +762,7 @@ function UserTable({ users }: { users: UserRow[] }) {
               </tr>
             </thead>
             <tbody>
-              {users.map((u, i) => (
+              {filtered.map((u, i) => (
                 <tr key={u.email} className="border-t border-border/50 hover:bg-muted/30">
                   <td className="px-4 py-2.5 text-muted-foreground">{i + 1}</td>
                   <td className="px-4 py-2.5 font-medium">
