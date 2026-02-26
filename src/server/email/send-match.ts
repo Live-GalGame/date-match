@@ -23,9 +23,11 @@ export async function sendMatchEmail(data: MatchEmailData) {
   }
   const resend = new Resend(apiKey);
   const from = process.env.EMAIL_FROM?.trim() || "Date Match <noreply@datematch.com>";
+  const replyTo = process.env.REPLY_TO_EMAIL?.trim();
 
   const { data: sentEmail, error } = await resend.emails.send({
     from,
+    replyTo: replyTo || undefined,
     to: data.toEmail,
     subject: `Your Date Match for ${data.week}`,
     tags: [{ name: "email_type", value: "match_result" }],
