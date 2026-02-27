@@ -109,7 +109,7 @@ function VerificationSteps() {
 export function SubmittedState({
   isLite, hasLiteData, email, displayName,
   emailSendIssue, answers, liteAnswers, selectedVersion,
-  turnstileRef, turnstileToken, setTurnstileToken,
+  turnstileRef, setTurnstileToken,
   handleResend, resendState, resendCooldown,
   onTryDeep,
 }: SubmittedStateProps) {

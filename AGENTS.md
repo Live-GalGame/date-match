@@ -222,6 +222,7 @@ vercel deploy --prod
 | `src/lib/turnstile.ts` | Cloudflare Turnstile 验证码校验 |
 | `src/lib/poster-profile.ts` | 分享海报个性档案数据生成 |
 | `src/lib/utils.ts` | 通用工具函数（cn class merge） |
+| `src/lib/use-hydrated.ts` | SSR 水合检测 hook（`useSyncExternalStore` 实现，替代 `useState+useEffect` 模式） |
 | `src/lib/trpc.ts` | tRPC 客户端创建 |
 | `src/components/providers.tsx` | tRPC + React Query Provider 包装 |
 
@@ -433,6 +434,32 @@ vercel deploy --prod
 **根因**：Turbopack 开发服务器缓存了旧的编译 chunk，没有拉取新生成的 Prisma Client。
 
 **修复**：`rm -rf .next` 然后重启 `pnpm dev`。**改完 schema 后建议养成习惯：`prisma generate && rm -rf .next`。**
+
+### 4. ESLint 全量修复（2026-02）
+
+**现象**：`pnpm lint` 报 13 个 error + 5 个 warning，涉及 React 编译器规则、Next.js 最佳实践等。
+
+**问题分类与修复方式**：
+
+| 类别 | 数量 | 修复方式 |
+|------|------|---------|
+| `react-hooks/set-state-in-effect`（水合守卫） | 2 | 新建 `useHydrated()` hook，用 `useSyncExternalStore` 替代 `useState+useEffect` |
+| `react-hooks/set-state-in-effect`（浏览器 API 读取） | 3 | 精确 `eslint-disable-next-line`（sessionStorage / matchMedia / query sync） |
+| `react-hooks/purity`（`Math.random()` 在 render 中） | 6 | 用基于 `index` 的确定性伪随机函数替代 |
+| `react/no-unescaped-entities` | 2 | `"` → `&ldquo;` / `&rdquo;` |
+| `@next/next/no-img-element` | 2 | `<img>` → `next/image` `<Image />` |
+| `react-hooks/exhaustive-deps` | 1 | 补全 useEffect 依赖数组 |
+| `@typescript-eslint/no-unused-vars` | 2 | 移除未使用变量 |
+
+**关键决策**：`eslint-disable` 注释必须放在 **setState 调用行** 的正上方，而非 `useEffect` 行上方，否则 ESLint 会报 `Unused eslint-disable directive`。
+
+### 5. 武装直升机飞行员数据清理（2026-02）
+
+**问题**：`getHelicopterPilots` API 在真实用户不足 10 人时会用假名填充，且生产数据库中混入了渗透测试垃圾数据（`PENTEST_GARBAGE_*`、`spamPilot*`、`InjectedPilot123` 等共 35 条）。
+
+**修复**：
+1. 删除 `FAKE_HELICOPTER_NAMES` 数组和填充逻辑，API 直接返回真实数据
+2. 通过 `turso db shell` 清除生产库中的垃圾记录
 
 ## 编码约定
 

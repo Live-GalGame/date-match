@@ -10,15 +10,21 @@ const CONFETTI_COLORS = [
   "#ff8fab", "#a855f7", "#f97316", "#06b6d4",
 ];
 
+function seededRandom(seed: number) {
+  const x = Math.sin(seed * 9301 + 49297) * 233280;
+  return x - Math.floor(x);
+}
+
 function ConfettiPiece({ index }: { index: number }) {
   const style = useMemo(() => {
-    const left = Math.random() * 100;
+    const r = (offset: number) => seededRandom(index * 7 + offset);
+    const left = r(0) * 100;
     const color = CONFETTI_COLORS[index % CONFETTI_COLORS.length];
-    const delay = Math.random() * 2;
-    const duration = 2.5 + Math.random() * 2;
-    const rotation = Math.random() * 360;
-    const size = 6 + Math.random() * 8;
-    const isCircle = Math.random() > 0.5;
+    const delay = r(1) * 2;
+    const duration = 2.5 + r(2) * 2;
+    const rotation = r(3) * 360;
+    const size = 6 + r(4) * 8;
+    const isCircle = r(5) > 0.5;
 
     return {
       left: `${left}%`,

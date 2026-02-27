@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 interface EmojiCardOption {
@@ -53,9 +54,11 @@ export function EmojiCardSelect({
           >
             {option.image ? (
               <>
-                <img
+                <Image
                   src={option.image}
                   alt={option.label}
+                  width={200}
+                  height={200}
                   className="w-full aspect-square object-cover"
                 />
                 <span className="text-xs sm:text-sm text-center font-medium leading-snug px-2 py-2.5">

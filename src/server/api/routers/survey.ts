@@ -18,14 +18,6 @@ const BLOCKED_EMAIL_DOMAINS = new Set([
   "spam4.me",
 ]);
 
-const FAKE_HELICOPTER_NAMES = [
-  "AH-64恋爱中", "黑鹰小甜心", "直-20暖男", "旋翼少女心",
-  "会飞的暖宝宝", "螺旋桨小公主", "低空飞行的浪漫", "自由翱翔er",
-  "悬停等你ing", "涡轴心跳加速", "雌鹿想脱单", "支奴干的温柔",
-  "眼镜蛇的微笑", "Ka-52求偶中", "旋风小队长", "夜鹰出击",
-  "阿帕奇暴击", "Mi-28猎人", "超级种马", "海王直升机",
-];
-
 export const surveyRouter = createTRPCRouter({
   registerHelicopterPilot: publicProcedure
     .input(z.object({ displayName: z.string().min(1).max(50) }))
@@ -41,14 +33,8 @@ export const surveyRouter = createTRPCRouter({
       select: { displayName: true },
       orderBy: { createdAt: "desc" },
     });
-    const realNames = pilots.map((p) => p.displayName);
-    if (realNames.length >= 10) {
-      return { count: realNames.length, names: realNames };
-    }
-    const shuffled = [...FAKE_HELICOPTER_NAMES].sort(() => Math.random() - 0.5);
-    const fakeCount = 10 + Math.floor(Math.random() * 6) - realNames.length;
-    const padded = [...realNames, ...shuffled.slice(0, fakeCount)];
-    return { count: padded.length, names: padded };
+    const names = pilots.map((p) => p.displayName);
+    return { count: names.length, names };
   }),
 
   get: protectedProcedure.query(async ({ ctx }) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useHydrated } from "@/lib/use-hydrated";
 
 function getNextTuesday9pm(): Date {
   const now = new Date();
@@ -45,14 +46,11 @@ function TimeBlock({ value, label }: { value: number; label: string }) {
 }
 
 export function CountdownTimer() {
+  const hydrated = useHydrated();
   const [timeLeft, setTimeLeft] = useState(() => getTimeLeft(getNextTuesday9pm()));
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const target = getNextTuesday9pm();
-    setTimeLeft(getTimeLeft(target));
-
     const id = setInterval(() => {
       const left = getTimeLeft(target);
       setTimeLeft(left);
@@ -63,7 +61,7 @@ export function CountdownTimer() {
     return () => clearInterval(id);
   }, []);
 
-  if (!mounted) {
+  if (!hydrated) {
     return <div className="h-[120px] sm:h-[140px]" />;
   }
 

@@ -314,7 +314,7 @@ export function GenderStep({
           {datingPreference === "不愿意透露" && (
             <p className="text-sm text-amber-600 dark:text-amber-500 mt-3 flex items-start gap-1.5 animate-in fade-in zoom-in-95 duration-200">
               <span className="shrink-0 mt-0.5">⚠️</span>
-              <span>我们尊重您的选择，但请注意，"不愿意透露"会极大地降低匹配概率。</span>
+              <span>我们尊重您的选择，但请注意，&ldquo;不愿意透露&rdquo;会极大地降低匹配概率。</span>
             </p>
           )}
         </div>

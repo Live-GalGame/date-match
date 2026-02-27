@@ -13,6 +13,7 @@ function UserDetailContent() {
 
   const [token, setToken] = useState("");
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading browser-only sessionStorage
     setToken(sessionStorage.getItem(TOKEN_KEY) ?? "");
   }, []);
 
@@ -134,7 +135,7 @@ function UserDetailContent() {
             该用户尚未提交问卷
           </section>
         ) : (
-          data.sections.map((section, idx) => (
+          data.sections.map((section) => (
             <section
               key={`${section.versionId}-${section.title}`}
               className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden"

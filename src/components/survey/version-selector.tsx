@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { createPortal } from "react-dom";
 import type { VersionId } from "./survey-types";
 
@@ -16,6 +17,7 @@ export function VersionSelector({ onSelect }: VersionSelectorProps) {
     const mq = window.matchMedia("(max-width: 767px)");
     if (!mq.matches) return;
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading browser matchMedia
     setShowArrow(true);
 
     const onScroll = () => {
@@ -58,7 +60,7 @@ export function VersionSelector({ onSelect }: VersionSelectorProps) {
                 { image: "/数据标注/Q2D.png", text: "精心编辑一条完美回复" },
               ].map((item) => (
                 <div key={item.image} className="bg-card rounded-lg overflow-hidden text-center">
-                  <img src={item.image} alt={item.text} className="w-full aspect-square object-cover" />
+                  <Image src={item.image} alt={item.text} width={200} height={200} className="w-full aspect-square object-cover" />
                   <span className="text-xs text-muted-foreground block px-1.5 py-1.5">{item.text}</span>
                 </div>
               ))}

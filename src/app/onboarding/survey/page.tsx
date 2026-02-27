@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { trpc } from "@/lib/trpc";
+import { useHydrated } from "@/lib/use-hydrated";
 import { getSurveyVersion } from "@/lib/survey-questions";
 import type { SingleQuestion } from "@/lib/survey-versions/types";
 import {
@@ -37,8 +38,7 @@ function SurveyPageInner() {
 
   // Prevent hydration mismatch: server has no localStorage, so we defer
   // rendering real content until after the first client-side effect.
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => { setHydrated(true); }, []);
+  const hydrated = useHydrated();
 
   const [referralCode] = useState<string>(() => {
     const fromUrl = typeof window !== "undefined" ? searchParams.get("code") ?? "" : "";
