@@ -8,10 +8,15 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{ code?: string }>;
 }) {
-  const [{ code }, participantCount] = await Promise.all([
-    searchParams,
-    db.surveyResponse.count({ where: { completed: true } }),
-  ]);
+  const [{ code }] = await Promise.all([searchParams]);
+  let participantCount = 0;
+  try {
+    participantCount = await db.surveyResponse.count({
+      where: { completed: true },
+    });
+  } catch {
+    // 本地无 DB 或网络不可达时降级，首页照常渲染
+  }
 
   return (
     <main>

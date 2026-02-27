@@ -69,16 +69,16 @@ export function Footer() {
       </div>
 
       {/* Donation QR */}
-      <div className="max-w-5xl mx-auto mt-8 pt-6 border-t border-white/10 flex flex-col items-center gap-3">
-        <p className="text-xs text-white/30 uppercase tracking-widest">买杯咖啡支持一下</p>
+      <div className="max-w-5xl mx-auto mt-10 pt-8 border-t border-white/10 flex flex-col items-center gap-4">
+        <p className="text-sm font-medium text-white/70 tracking-wide">买杯咖啡支持一下</p>
         <Image
           src="https://bhsalipj3wlj6tkb.public.blob.vercel-storage.com/donation-qr.jpg"
           alt="赞赏码"
-          width={160}
-          height={160}
-          className="rounded-lg"
+          width={224}
+          height={224}
+          className="rounded-xl w-44 h-44 sm:w-52 sm:h-52 md:w-[224px] md:h-[224px]"
         />
-        <p className="text-xs text-white/40">微信扫码赞赏，感谢您的支持</p>
+        <p className="text-sm text-white/50">微信扫码赞赏，感谢您的支持</p>
       </div>
     </footer>
   );
