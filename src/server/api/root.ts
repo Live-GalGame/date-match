@@ -5,6 +5,7 @@ import { surveyRouter } from "./routers/survey";
 import { matchRouter } from "./routers/match";
 import { analyticsRouter } from "./routers/analytics";
 import { neptuneRouter } from "./routers/neptune";
+import { feedbackRouter } from "./routers/feedback";
 
 export const appRouter = createTRPCRouter({
   profile: profileRouter,
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   match: matchRouter,
   analytics: analyticsRouter,
   neptune: neptuneRouter,
+  feedback: feedbackRouter,
 });
 
 export type AppRouter = typeof appRouter;

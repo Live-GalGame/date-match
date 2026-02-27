@@ -18,13 +18,15 @@
 | 前端 | React | 19 |
 | 样式 | Tailwind CSS + shadcn/ui (Radix) | 4 |
 | API 层 | tRPC + React Query | 11 / 5 |
-| ORM | Prisma + @prisma/adapter-libsql | 7 |
-| 数据库 | SQLite (本地) / Turso LibSQL (生产) | — |
+| ORM | Prisma + @prisma/adapter-pg | 7 |
+| 数据库 | PostgreSQL (Railway) | — |
+| AI | OpenAI 兼容 LLM API（可选，用于匹配文案生成） | — |
 | 认证 | Better Auth (Magic Link) | 1.4 |
 | 邮件 | Resend | 6 |
 | 验证码 | Cloudflare Turnstile | — |
 | 校验 | Zod | 4 |
 | 序列化 | SuperJSON | — |
+
 | 包管理 | pnpm | — |
 | 部署 | Vercel (Serverless) | — |
 
@@ -39,7 +41,7 @@ pnpm build        # 生产构建
 pnpm lint         # ESLint 检查（eslint-config-next）
 pnpm start        # 启动生产服务
 npx prisma generate  # 重新生成 Prisma Client（schema 变更后必须执行）
-npx prisma db push   # 同步 schema 到本地 SQLite
+npx prisma db push   # 同步 schema 到数据库（本地和生产均可直接使用）
 npx prisma studio    # 打开数据库可视化界面
 ```
 
@@ -50,53 +52,53 @@ npx prisma studio    # 打开数据库可视化界面
 | 服务 | 用途 | 配置位置 |
 |------|------|---------|
 | **Vercel** | 前端 + Serverless Functions | `vercel.json`（如有）/ Vercel Dashboard |
-| **Turso** | 托管 LibSQL 数据库（东京区域） | `src/server/db/index.ts` |
+| **Railway** | 托管 PostgreSQL 数据库 | `src/server/db/index.ts` |
 | **Resend** | 邮件发送 | `src/lib/auth.ts` + `src/server/email/send-match.ts` |
 
 ### 本地 CLI 工具（已安装，可直接使用）
 
 | CLI | 用途 | 常用命令 |
 |-----|------|---------|
-| **Turso CLI** | 直接查询/管理生产数据库 | `turso db shell date-match "SQL语句"` |
 | **Vercel CLI** | 部署、环境变量管理 | `vercel deploy --prod`、`vercel env ls` |
+| **Railway CLI** | 数据库管理（可选） | `railway connect postgres` |
 
-无需额外登录，本地已配置好认证。可随时通过 `turso db shell date-match` 直接查询生产数据。
+**常用查询方式：**
 
-**常用查询示例：**
+可通过 `npx prisma studio` 可视化操作数据库，或使用任意 PostgreSQL 客户端连接 Railway 提供的 `DATABASE_URL`。
 
 ```bash
-# 各表行数概览
-turso db shell date-match "SELECT 'User' AS tbl, COUNT(*) AS cnt FROM User UNION ALL SELECT 'SurveyResponse', COUNT(*) FROM SurveyResponse UNION ALL SELECT 'Verification', COUNT(*) FROM Verification UNION ALL SELECT 'Match', COUNT(*) FROM Match;"
+# 通过 psql 直连（需本地安装 psql）
+psql "$DATABASE_URL"
 
-# 邮箱验证状态分布
-turso db shell date-match "SELECT emailVerified, COUNT(*) FROM User GROUP BY emailVerified;"
+# 各表行数概览
+psql "$DATABASE_URL" -c "SELECT 'User' AS tbl, COUNT(*) AS cnt FROM \"User\" UNION ALL SELECT 'SurveyResponse', COUNT(*) FROM \"SurveyResponse\" UNION ALL SELECT 'Match', COUNT(*) FROM \"Match\";"
 
 # 查看表结构
-turso db shell date-match "PRAGMA table_info(Profile);"
+psql "$DATABASE_URL" -c "\d \"Profile\""
 ```
 
 ### 环境变量（Vercel Dashboard 管理）
 
 | 变量 | 说明 |
 |------|------|
-| `DATABASE_URL` | Turso LibSQL URL (`libsql://...turso.io`) |
-| `TURSO_AUTH_TOKEN` | Turso 数据库认证 JWT |
+| `DATABASE_URL` | Railway PostgreSQL 连接字符串 (`postgresql://...railway.app/...`) |
 | `BETTER_AUTH_SECRET` | Better Auth 签名密钥 |
 | `BETTER_AUTH_URL` | 生产环境 URL (`https://www.date-match.online`) |
 | `RESEND_API_KEY` | Resend 邮件服务 API Key |
 | `EMAIL_FROM` | 发件人地址（需在 Resend 验证域名） |
+| `LLM_API_KEY` | （可选）OpenAI 兼容 LLM API Key，用于 AI 牵线文案 |
+| `LLM_BASE_URL` | （可选）LLM API 地址，默认 `https://api.openai.com`，DeepSeek 填 `https://api.deepseek.com` |
+| `LLM_MODEL` | （可选）模型名，默认 `gpt-4o-mini`，DeepSeek 填 `deepseek-chat` |
 
 ### 部署命令
 
 ```bash
-# 推送 Schema 到 Turso（数据库迁移）
-npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script | turso db shell date-match
+# 数据库迁移（PostgreSQL 可直接 db push）
+npx prisma db push
 
 # 部署到 Vercel 生产环境
-vercel deploy --prod
+npx prisma generate && vercel deploy --prod
 ```
-
-注意：`prisma db push` 不支持 `libsql://` 协议，必须用 `migrate diff` 生成 SQL 再通过 `turso db shell` 执行。
 
 ## 关键架构决策
 
@@ -106,9 +108,12 @@ vercel deploy --prod
 4. **匹配算法是配置驱动的纯函数**：`src/server/matching/algorithm.ts` 不依赖数据库，从当前活跃版本读取维度权重和硬过滤规则，自动适配。
 5. **tRPC 统一 API**：所有前后端通信走 tRPC，路由定义在 `src/server/api/routers/`。无裸 fetch 调用。
 6. **问卷无需登录**：用户直接填写问卷，最后一步通过 `submitPublic`（公开 procedure）提交邮箱 + 答案，自动创建用户并 opt-in 匹配。
-7. **LibSQL adapter + Turso**：Prisma 使用 `@prisma/adapter-libsql`，本地开发用 `file:./prisma/dev.db`，生产连接 Turso 云端数据库。
+7. **PostgreSQL adapter + Railway**：Prisma 使用 `@prisma/adapter-pg`，本地和生产均连接 PostgreSQL（Railway 托管）。
 8. **Cloudflare Turnstile 防刷**：问卷提交时验证 Turnstile token（`src/lib/turnstile.ts`），防止恶意批量提交。
 9. **双流程问卷**：前端支持深度版（`deep-survey-flow.tsx`，v2）和轻量版（`lite-survey-flow.tsx`，v3-lite）两条流程，用户可通过 `version-selector.tsx` 切换。
+10. **两阶段匹配管线**：Stage 1 规则引擎初筛（心理学互补矩阵 + Deal-breaker 硬过滤 + 全局最大权匹配） → Stage 2 LLM 精筛（生成 AI 牵线文案 + 破冰话题）。LLM 可选，无 API Key 时优雅降级。
+11. **Deal-breaker 反向标签**：Profile 表的 `traits`（我的特征）和 `dealBreakers`（我的雷区）JSON 数组，匹配时双向硬过滤。
+12. **RLHF 反馈闭环**：匹配邮件内嵌表情评分链接（HMAC 签名，无需登录），Dashboard 内有中期进展反馈。`MatchFeedback` 表收集数据，用于未来校准匹配矩阵。
 
 ## 用户流程
 
@@ -151,14 +156,16 @@ vercel deploy --prod
 | `qualification` | `qualification.ts` | 学历认证提交/查询 |
 | `match` | `match.ts` | 匹配结果查询 |
 | `analytics` | `analytics.ts` | 数据统计（metrics 页面用，含用户表、漏斗数据等） |
+| `feedback` | `feedback.ts` | 匹配反馈提交/查询（RLHF 数据收集） |
 
 ### API 路由（Next.js Route Handlers）
 
 | 路径 | 说明 |
 |------|------|
-| `src/app/api/trpc/[...trpc]/` | tRPC HTTP handler |
+| `src/app/api/trpc/[trpc]/` | tRPC HTTP handler |
 | `src/app/api/auth/[...all]/` | Better Auth 路由（Magic Link 等） |
-| `src/app/api/match/` | 匹配触发入口（Bearer token 鉴权） |
+| `src/app/api/match/trigger/` | 匹配触发入口（Bearer token 鉴权，两阶段管线） |
+| `src/app/api/feedback/` | 邮件一键评分端点（HMAC 签名，无需登录） |
 | `src/app/api/admin/` | 管理接口 |
 | `src/app/api/verify-email/` | 邮箱验证回调 |
 
@@ -238,21 +245,30 @@ vercel deploy --prod
 
 | 文件 | 作用 |
 |------|------|
-| `src/server/db/index.ts` | 数据库连接（LibSQL URL + authToken） |
+| `src/server/db/index.ts` | 数据库连接（PostgreSQL via `@prisma/adapter-pg`） |
 | `prisma/schema.prisma` | 数据模型定义 |
 | `.env` | 本地环境变量（不提交到 git） |
+
+### 匹配系统
+
+| 文件 | 作用 |
+|------|------|
+| `src/server/matching/algorithm.ts` | 匹配算法（心理学互补矩阵 + Deal-breaker + 全局最大权匹配） |
+| `src/server/llm/generate-insight.ts` | LLM 服务——调用 OpenAI 兼容 API 生成 AI 牵线文案 + 破冰话题 |
+| `src/lib/deal-breaker-traits.ts` | Deal-breaker 反向标签定义常量（前后端共享） |
 
 ### 数据模型
 
 | Model | 说明 | 关键字段 |
 |-------|------|---------|
 | `User` | 用户 | email, name |
-| `Profile` | 个人资料 | displayName, gender, datingPreference, age, school, education, schoolTier |
+| `Profile` | 个人资料 | displayName, gender, datingPreference, age, school, education, schoolTier, **traits** (JSON), **dealBreakers** (JSON) |
 | `SurveyResponse` | 问卷回答 | answers (JSON), completed, optedIn |
-| `Match` | 匹配结果 | user1Id, user2Id, compatibility, reasons (JSON), week |
+| `Match` | 匹配结果 | user1Id, user2Id, compatibility, reasons (JSON), **aiInsight**, week |
+| `MatchFeedback` | 匹配反馈 | matchId, userId, initialScore (1-5), status, issues (JSON) |
 | `Qualification` | 身份验证 | eduEmail, status |
 
-Prisma schema 位于 `prisma/schema.prisma`，使用 SQLite（本地）/ Turso（生产）。
+Prisma schema 位于 `prisma/schema.prisma`，使用 PostgreSQL（Railway 托管）。
 
 ## 题型系统
 
@@ -302,13 +318,22 @@ import activeVersion from "./survey-versions/v2";
 ### 各题型的相似度计算
 
 - **slider**：`1 - |a - b| / range`
-- **single**：完全匹配 = 1.0，不匹配 = 0.2
+- **single**：对关键题（`conflict_animal`、`safety_source`、`economic_role`）使用心理学互补矩阵（Compatibility Matrix），非关键题退回 `匹配=1.0, 不匹配=0.2`
 - **tags**：Jaccard = `|A ∩ B| / |A ∪ B|`
 - **ranking**：共有元素比例 × 0.6 + Kendall 一致性 × 0.4
 
+### 心理学互补矩阵
+
+对以下 3 个关键题型，使用基于心理学理论的 N×N 相容性矩阵替代简单的「完全匹配/不匹配」：
+
+- **冲突模式 (`conflict_animal`)**：海豚（安全型）为百搭，刺猬+鸵鸟（追逃模式）判极低分
+- **安全感来源 (`safety_source`)**：焦虑型+回避型低分，安全型能有效带动不安全型
+- **经济角色 (`economic_role`)**：互补关系的细化评估
+
 ### 硬过滤
 
-目前仅一条：`bride_price_attitude` 中 B（诚意测试）与 D（过时陋习）互相排斥。
+1. **问卷硬过滤**：`bride_price_attitude` 中 B（诚意测试）与 D（过时陋习）互相排斥
+2. **Deal-breaker 硬过滤**：Profile 的 `traits`/`dealBreakers` 双向检测——A 的雷区命中 B 的特征，或反之，直接排除
 
 ### 分数映射
 
@@ -316,7 +341,10 @@ import activeVersion from "./survey-versions/v2";
 
 ### 匹配流程
 
-`runMatchingRound()` → 随机打乱已 opt-in 用户 → 贪心逐一配对 → 返回 `MatchResult[]`。
+**Stage 1（规则引擎）**：`runMatchingRound()` → 构建全局兼容度边集 → 按分数降序排列 → 贪心连边（≤2000 人全图，>2000 人采样模式） → `MatchResult[]`
+
+**Stage 2（LLM 精筛）**：对 Stage 1 产出的每对匹配，调用 LLM 生成个性化牵线文案 + 破冰话题 → 存入 `Match.aiInsight`
+
 触发入口：`POST /api/match/trigger`（需 Bearer token = BETTER_AUTH_SECRET）。
 
 ## 用户增长图表（自动更新）
@@ -325,18 +353,16 @@ README 中的用户增长曲线由 GitHub Actions 每 6 小时自动更新。
 
 | 文件 | 作用 |
 |------|------|
-| `scripts/update-growth-chart.mjs` | 查询 Turso 用户数据 → 生成 SVG 折线图（零依赖，用 Turso HTTP API + 手绘 SVG） |
+| `scripts/update-growth-chart.mjs` | 查询用户数据 → 生成 SVG 折线图（零依赖，手绘 SVG） |
 | `.github/workflows/update-growth-chart.yml` | 定时触发脚本，commit 更新后的 SVG 到 repo |
 | `public/growth-chart.svg` | 生成的图表文件，README 直接引用 |
 
-**GitHub Secrets（已通过 `gh secret set` 配置）：** `DATABASE_URL`、`TURSO_AUTH_TOKEN`
+**GitHub Secrets（已通过 `gh secret set` 配置）：** `DATABASE_URL`
 
 **手动更新：**
 ```bash
-# 本地运行
-DATABASE_URL="libsql://date-match-hhh2210.aws-ap-northeast-1.turso.io" \
-TURSO_AUTH_TOKEN="$(turso db tokens create date-match | tr -d '\n')" \
-node scripts/update-growth-chart.mjs
+# 本地运行（DATABASE_URL 指向 Railway PostgreSQL）
+DATABASE_URL="postgresql://..." node scripts/update-growth-chart.mjs
 
 # 或远程触发 GitHub Action
 gh workflow run update-growth-chart.yml
@@ -357,25 +383,19 @@ gh workflow run update-growth-chart.yml
 
 ### 数据库迁移（改了 schema 后）
 
-**⚠️ 关键：改完 `prisma/schema.prisma` 后必须同时迁移本地和生产数据库，否则线上会报错。**
-
-Prisma schema 只是声明式定义，不会自动同步到数据库。本地和生产需要分别执行迁移：
+迁移到 Railway PostgreSQL 后，`prisma db push` 可以直接推送到生产库，无需手动写 SQL。
 
 ```bash
-# 1. 本地 SQLite — 自动对比并同步
-npx prisma db push
-
-# 2. 重新生成 Prisma Client（schema 变更后必须执行）
+# 1. 重新生成 Prisma Client（schema 变更后必须执行）
 npx prisma generate
 
-# 3. 生产 Turso — prisma db push 不支持 libsql:// 协议，必须手动
-#    方式 A：全量重建（仅适用于空数据库或可丢数据的场景）
-npx prisma migrate diff --from-empty --to-schema prisma/schema.prisma --script | turso db shell date-match
-#    方式 B：增量 ALTER（生产环境已有数据时用这种）
-turso db shell date-match "ALTER TABLE \"Profile\" ADD COLUMN \"newField\" TEXT NOT NULL DEFAULT '';"
+# 2. 推送 schema 变更到数据库
+#    本地开发：DATABASE_URL 指向本地/Railway dev 数据库
+#    生产环境：DATABASE_URL 指向 Railway production 数据库
+npx prisma db push
 
-# 4. 验证生产表结构
-turso db shell date-match "PRAGMA table_info(Profile);"
+# 3. 清除 Turbopack 缓存（避免旧 Client 缓存）
+rm -rf .next
 ```
 
 ### 部署
@@ -394,8 +414,7 @@ npx prisma generate && vercel deploy --prod
 vercel env ls
 
 # 安全设置（用 printf 避免末尾换行）
-printf 'libsql://date-match-hhh2210.aws-ap-northeast-1.turso.io' | vercel env add DATABASE_URL production
-turso db tokens create date-match | tr -d '\n' | vercel env add TURSO_AUTH_TOKEN production --force
+printf 'postgresql://user:pass@host:port/db' | vercel env add DATABASE_URL production
 
 # 修改后必须重新部署才能生效
 vercel deploy --prod
@@ -403,29 +422,21 @@ vercel deploy --prod
 
 ## 已知踩坑记录
 
-### 1. submitPublic 返回 500："Unknown argument `datingPreference`"（2026-02）
+### 1. submitPublic 返回 500："Unknown argument `datingPreference`"（2026-02，Turso 时代）
 
 **现象**：问卷提交报「提交失败，请重试」，本地和线上都失败。
 
-**根因链**：
-- `prisma/schema.prisma` 新增了 `education`、`schoolTier`、`datingPreference` 字段
-- 本地 `prisma db push` 同步了 SQLite，但 **Turso 生产数据库从未执行对应的 ALTER TABLE**
-- 同时 Next.js Turbopack 缓存了旧的 Prisma Client 编译产物
+**根因链**：Schema 新增字段后 Turso 生产库未手动 ALTER TABLE。迁移到 Railway PostgreSQL 后此问题不再出现（`prisma db push` 可直接推送）。
 
-**修复步骤**：
-1. `npx prisma generate` — 重新生成 Client
-2. `rm -rf .next` + 重启 `pnpm dev` — 清除 Turbopack 缓存
-3. `turso db shell date-match "ALTER TABLE ..."` — 给生产数据库补齐缺失字段
+**教训**：改完 schema 后执行 `npx prisma generate && npx prisma db push && rm -rf .next`。
 
-**教训**：改完 schema 后，本地 `prisma db push` 和生产 `turso db shell ALTER TABLE` 必须同步执行，缺一不可。
+### 2. submitPublic 返回 500："Invalid URL"（2026-02，Turso 时代）
 
-### 2. submitPublic 返回 500："Invalid URL"（2026-02）
+**现象**：Vercel 线上部署报 `Invalid URL`。
 
-**现象**：Vercel 线上部署报 `Invalid prisma.user.upsert() invocation: Invalid URL`。
+**根因**：Vercel 环境变量值末尾包含 `\n` 换行符。迁移到 Railway PostgreSQL 后，仅需一个 `DATABASE_URL` 环境变量。
 
-**根因**：Vercel 环境变量 `DATABASE_URL` 和 `TURSO_AUTH_TOKEN` 的值末尾包含了 `\n` 换行符（在 Dashboard 粘贴时带入），导致 `libsql://...turso.io\n` 不是合法 URL。
-
-**修复**：通过 Vercel CLI 重新设置干净的值（见上方「Vercel 环境变量注意事项」），然后 `vercel deploy --prod`。
+**教训**：通过 CLI `printf` 设置环境变量避免末尾换行。
 
 ### 3. 本地 Prisma Client 与运行时不一致
 
@@ -459,7 +470,7 @@ vercel deploy --prod
 
 **修复**：
 1. 删除 `FAKE_HELICOPTER_NAMES` 数组和填充逻辑，API 直接返回真实数据
-2. 通过 `turso db shell` 清除生产库中的垃圾记录
+2. 通过数据库直连清除生产库中的垃圾记录
 
 ## 编码约定
 
@@ -468,3 +479,19 @@ vercel deploy --prod
 - Tailwind CSS 样式，使用 shadcn 主题变量（`bg-primary`, `text-muted-foreground` 等）
 - 无注释叙述代码——注释仅用于非显而易见的决策或 trade-off
 - 问卷提交用 `publicProcedure`（无需登录），Dashboard 等管理功能用 `protectedProcedure`
+
+## ⚠️ 提交前检查清单
+
+每次 commit 代码前，必须过一遍以下检查项：
+
+1. **是否改了 `prisma/schema.prisma`？** → 必须同步执行数据库迁移：
+   ```bash
+   npx prisma generate          # 重新生成 Client
+   npx prisma db push            # 推送变更到 Railway PostgreSQL
+   rm -rf .next                  # 清除 Turbopack 缓存
+   ```
+   忘记这一步会导致线上 500 错误（Prisma Client 与数据库结构不一致）。
+2. **是否改了匹配算法或问卷定义？** → 算法变更只影响下次匹配批处理，不影响用户填写。但需确认 `pnpm build` 通过。
+3. **是否新增了环境变量？** → 需同步到 Vercel Dashboard（`vercel env add`），否则线上拿不到值。
+4. **`pnpm build` 是否通过？** → 这是唯一的 TypeScript 类型检查，不通过不要提交。
+5. **`pnpm lint` 是否通过？** → ESLint 必须零 error。

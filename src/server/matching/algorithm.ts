@@ -24,9 +24,20 @@ function parseSurvey(survey: SurveyResponse): ParsedSurvey {
   };
 }
 
-// ─── Hard filters (config-driven) ───
+// ─── Deal-breaker profile data ───
 
-function shouldHardFilter(a: ParsedSurvey, b: ParsedSurvey): boolean {
+export interface ProfileData {
+  traits: string[];
+  dealBreakers: string[];
+}
+
+// ─── Hard filters (config-driven + deal-breakers) ───
+
+function shouldHardFilter(
+  a: ParsedSurvey,
+  b: ParsedSurvey,
+  profiles?: Map<string, ProfileData>,
+): boolean {
   for (const config of matchingConfig.hardFilters) {
     const aVal = a.answers[config.questionId];
     const bVal = b.answers[config.questionId];
@@ -36,6 +47,20 @@ function shouldHardFilter(a: ParsedSurvey, b: ParsedSurvey): boolean {
       }
     }
   }
+
+  if (profiles) {
+    const ap = profiles.get(a.userId);
+    const bp = profiles.get(b.userId);
+    if (ap && bp) {
+      for (const trait of bp.traits) {
+        if (ap.dealBreakers.includes(trait)) return true;
+      }
+      for (const trait of ap.traits) {
+        if (bp.dealBreakers.includes(trait)) return true;
+      }
+    }
+  }
+
   return false;
 }
 
@@ -51,10 +76,43 @@ function sliderSimilarity(a: ParsedSurvey, b: ParsedSurvey, questionId: string):
   return 1 - Math.abs(aVal - bVal) / range;
 }
 
+const CONFLICT_ANIMAL_MATRIX: Record<string, Record<string, number>> = {
+  A: { A: 0.6, B: 0.1, C: 0.8, D: 0.6, E: 0.5 },
+  B: { A: 0.1, B: 0.4, C: 0.8, D: 0.4, E: 0.5 },
+  C: { A: 0.8, B: 0.8, C: 1.0, D: 0.9, E: 0.8 },
+  D: { A: 0.6, B: 0.4, C: 0.9, D: 0.8, E: 0.7 },
+  E: { A: 0.5, B: 0.5, C: 0.8, D: 0.7, E: 0.8 },
+};
+
+const SAFETY_SOURCE_MATRIX: Record<string, Record<string, number>> = {
+  A: { A: 0.5, B: 0.6, C: 0.1, D: 0.8 },
+  B: { A: 0.6, B: 0.8, C: 0.7, D: 0.9 },
+  C: { A: 0.1, B: 0.7, C: 0.4, D: 0.7 },
+  D: { A: 0.8, B: 0.9, C: 0.7, D: 1.0 },
+};
+
+const ECONOMIC_ROLE_MATRIX: Record<string, Record<string, number>> = {
+  A: { A: 1.0, B: 0.6, C: 0.4, D: 0.5 },
+  B: { A: 0.6, B: 0.2, C: 0.6, D: 0.6 },
+  C: { A: 0.4, B: 0.6, C: 1.0, D: 0.8 },
+  D: { A: 0.5, B: 0.6, C: 0.8, D: 1.0 },
+};
+
 function singleMatchScore(a: ParsedSurvey, b: ParsedSurvey, questionId: string): number {
   const aVal = a.answers[questionId];
   const bVal = b.answers[questionId];
   if (typeof aVal !== "string" || typeof bVal !== "string") return 0.3;
+
+  if (questionId === "conflict_animal" && CONFLICT_ANIMAL_MATRIX[aVal]?.[bVal] !== undefined) {
+    return CONFLICT_ANIMAL_MATRIX[aVal][bVal];
+  }
+  if (questionId === "safety_source" && SAFETY_SOURCE_MATRIX[aVal]?.[bVal] !== undefined) {
+    return SAFETY_SOURCE_MATRIX[aVal][bVal];
+  }
+  if (questionId === "economic_role" && ECONOMIC_ROLE_MATRIX[aVal]?.[bVal] !== undefined) {
+    return ECONOMIC_ROLE_MATRIX[aVal][bVal];
+  }
+
   return aVal === bVal ? 1.0 : 0.2;
 }
 
@@ -145,23 +203,31 @@ function generateReasons(a: ParsedSurvey, b: ParsedSurvey): string[] {
     reasons.push(`你们在「${topDim.name}」维度上高度契合`);
   }
 
-  if (a.answers["safety_source"] === b.answers["safety_source"]) {
+  const aSafety = a.answers["safety_source"] as string;
+  const bSafety = b.answers["safety_source"] as string;
+  if (aSafety === bSafety) {
     const q = getQuestionById("safety_source") as SingleQuestion | undefined;
     if (q) {
-      const opt = q.options.find((o) => o.value === a.answers["safety_source"]);
+      const opt = q.options.find((o) => o.value === aSafety);
       if (opt) reasons.push(`你们的安全感来源一致：${opt.label.split("——")[0]}`);
     }
+  } else if (SAFETY_SOURCE_MATRIX[aSafety]?.[bSafety] >= 0.8) {
+    reasons.push(`你们的安全感需求形成完美的心理学互补`);
   }
 
-  if (a.answers["conflict_animal"] === b.answers["conflict_animal"]) {
+  const aAnimal = a.answers["conflict_animal"] as string;
+  const bAnimal = b.answers["conflict_animal"] as string;
+  if (aAnimal === bAnimal) {
     const q = getQuestionById("conflict_animal") as SingleQuestion | undefined;
     if (q) {
-      const opt = q.options.find((o) => o.value === a.answers["conflict_animal"]);
+      const opt = q.options.find((o) => o.value === aAnimal);
       if (opt) {
         const animal = opt.label.split("——")[0];
         reasons.push(`面对冲突时，你们都是${animal}型`);
       }
     }
+  } else if (CONFLICT_ANIMAL_MATRIX[aAnimal]?.[bAnimal] >= 0.8) {
+    reasons.push(`面对冲突时，你们的处理模式能很好地互相缓冲`);
   }
 
   const aFactors = Array.isArray(a.answers["realistic_factors"]) ? (a.answers["realistic_factors"] as string[]) : [];
@@ -204,7 +270,8 @@ export interface MatchResult {
 
 export function findBestMatch(
   target: SurveyResponse,
-  candidates: SurveyResponse[]
+  candidates: SurveyResponse[],
+  profiles?: Map<string, ProfileData>,
 ): MatchResult | null {
   const parsedTarget = parseSurvey(target);
   let bestMatch: MatchResult | null = null;
@@ -215,7 +282,7 @@ export function findBestMatch(
 
     const parsedCandidate = parseSurvey(candidate);
 
-    if (shouldHardFilter(parsedTarget, parsedCandidate)) continue;
+    if (shouldHardFilter(parsedTarget, parsedCandidate, profiles)) continue;
 
     const score = computeCompatibility(parsedTarget, parsedCandidate);
     if (score > bestScore) {
@@ -232,26 +299,88 @@ export function findBestMatch(
   return bestMatch;
 }
 
-export function runMatchingRound(surveys: SurveyResponse[]): MatchResult[] {
+const MAX_FULL_GRAPH = 2000;
+const SAMPLE_SIZE = 200;
+
+function sampleIndices(total: number, exclude: number, count: number): number[] {
+  if (total - 1 <= count) {
+    return Array.from({ length: total }, (_, i) => i).filter((i) => i !== exclude);
+  }
+  const indices = new Set<number>();
+  while (indices.size < count) {
+    const r = Math.floor(Math.random() * total);
+    if (r !== exclude) indices.add(r);
+  }
+  return [...indices];
+}
+
+export function runMatchingRound(
+  surveys: SurveyResponse[],
+  profiles?: Map<string, ProfileData>,
+): MatchResult[] {
   const opted = surveys.filter((s) => s.completed && s.optedIn);
   const matched = new Set<string>();
   const results: MatchResult[] = [];
 
-  const shuffled = [...opted].sort(() => Math.random() - 0.5);
+  interface Edge {
+    i: number;
+    j: number;
+    score: number;
+  }
 
-  for (const survey of shuffled) {
-    if (matched.has(survey.userId)) continue;
+  const parsedMap = new Map<string, ParsedSurvey>();
+  for (const s of opted) {
+    parsedMap.set(s.userId, parseSurvey(s));
+  }
 
-    const available = shuffled.filter(
-      (s) => s.userId !== survey.userId && !matched.has(s.userId)
-    );
+  const edges: Edge[] = [];
+  const useFull = opted.length <= MAX_FULL_GRAPH;
 
-    const match = findBestMatch(survey, available);
-    if (match) {
-      matched.add(match.user1Id);
-      matched.add(match.user2Id);
-      results.push(match);
+  if (useFull) {
+    for (let i = 0; i < opted.length; i++) {
+      for (let j = i + 1; j < opted.length; j++) {
+        const p1 = parsedMap.get(opted[i].userId)!;
+        const p2 = parsedMap.get(opted[j].userId)!;
+        if (shouldHardFilter(p1, p2, profiles)) continue;
+        edges.push({ i, j, score: computeCompatibility(p1, p2) });
+      }
     }
+  } else {
+    // Large pool: each user evaluates a random sample of candidates
+    const seen = new Set<string>();
+    for (let i = 0; i < opted.length; i++) {
+      const candidates = sampleIndices(opted.length, i, SAMPLE_SIZE);
+      const p1 = parsedMap.get(opted[i].userId)!;
+      for (const j of candidates) {
+        const key = i < j ? `${i}:${j}` : `${j}:${i}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const p2 = parsedMap.get(opted[j].userId)!;
+        if (shouldHardFilter(p1, p2, profiles)) continue;
+        edges.push({ i: Math.min(i, j), j: Math.max(i, j), score: computeCompatibility(p1, p2) });
+      }
+    }
+  }
+
+  edges.sort((a, b) => b.score - a.score);
+
+  for (const edge of edges) {
+    const u1 = opted[edge.i].userId;
+    const u2 = opted[edge.j].userId;
+    if (matched.has(u1) || matched.has(u2)) continue;
+
+    matched.add(u1);
+    matched.add(u2);
+
+    const p1 = parsedMap.get(u1)!;
+    const p2 = parsedMap.get(u2)!;
+
+    results.push({
+      user1Id: u1,
+      user2Id: u2,
+      compatibility: edge.score,
+      reasons: generateReasons(p1, p2),
+    });
   }
 
   return results;
