@@ -10,7 +10,7 @@
 ## 🚀 用户增长
 
 <picture>
-  <img src="public/growth-chart.svg" alt="用户增长曲线" width="700">
+  <img src="https://live-galgame.github.io/date-match/growth-chart.svg" alt="用户增长曲线" width="700">
 </picture>
 
 ## 它是怎么运作的？
