@@ -7,10 +7,19 @@ export function Hero({ code, participantCount = 0 }: { code?: string; participan
     : "/onboarding/survey";
 
   return (
-    <section className="relative min-h-[70vh] flex flex-col items-center justify-center text-center hero-gradient text-white overflow-hidden pt-20">
+    <section className="relative min-h-[70vh] flex flex-col items-center justify-center text-center hero-gradient text-white overflow-hidden pt-28">
       <div className="absolute inset-0 bg-[url('/stars.svg')] opacity-30 bg-repeat" />
 
-      <nav className="absolute top-0 left-0 right-0 flex items-center justify-between px-6 py-5 z-10">
+      <Link
+        href="/hire"
+        className="absolute top-0 left-0 right-0 z-20 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 px-4 py-2.5 text-white text-xs sm:text-sm font-medium hover:brightness-110 transition-all"
+      >
+        <span className="shrink-0">🚀</span>
+        <span className="truncate">我们正在招聘全栈工程师，加入我们一起造有趣的产品！</span>
+        <span className="shrink-0 rounded-full bg-white/20 px-2 py-0.5 text-[10px] sm:text-xs">了解详情 →</span>
+      </Link>
+
+      <nav className="absolute top-10 left-0 right-0 flex items-center justify-between px-6 py-5 z-10">
         <Link href="/" className="text-xl font-serif tracking-wide text-white/90 hover:text-white transition-colors">
           关系基因匹配
         </Link>
