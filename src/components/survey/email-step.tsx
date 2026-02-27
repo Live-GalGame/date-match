@@ -77,14 +77,22 @@ export function EmailStep({
           />
         </div>
 
+        <div className="bg-muted/40 border border-border rounded-xl px-4 py-3 mb-1">
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            以下是一些可选的匹配参考数据，你可以按照自己愿意披露隐私和期待对方相关信息的程度来填写和勾选：
+          </p>
+        </div>
+
         <div>
-          <label className="block text-sm font-medium mb-2">最高学历</label>
+          <label className="block text-sm font-medium mb-2">
+            学历 <span className="text-xs text-muted-foreground font-normal ml-1">（选填）</span>
+          </label>
           <div className="grid grid-cols-4 gap-2">
             {(["高中", "本科", "硕士", "博士"] as const).map((opt) => (
               <button
                 key={opt}
                 type="button"
-                onClick={() => setEducation(opt)}
+                onClick={() => setEducation(education === opt ? "" : opt)}
                 className={cn(
                   "py-2.5 rounded-xl border text-sm font-medium transition-all",
                   education === opt ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/40"
@@ -94,11 +102,13 @@ export function EmailStep({
               </button>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">请填写你目前已取得或正在就读的最高学历（在读也算）</p>
+          <p className="text-xs text-muted-foreground mt-2">目前已取得或正在就读的最高学历（在读也算）</p>
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-2">院校层级</label>
+          <label className="block text-sm font-medium mb-2">
+            院校类型 <span className="text-xs text-muted-foreground font-normal ml-1">（选填）</span>
+          </label>
           <div className="grid grid-cols-2 gap-2">
             {([
               { value: "清北", label: "清北", sub: "清华 / 北大" },
@@ -111,7 +121,7 @@ export function EmailStep({
               <button
                 key={opt.value}
                 type="button"
-                onClick={() => setSchoolTier(opt.value)}
+                onClick={() => setSchoolTier(schoolTier === opt.value ? "" : opt.value)}
                 className={cn(
                   "py-2.5 px-3 rounded-xl border text-sm font-medium transition-all flex flex-col items-center gap-0.5",
                   schoolTier === opt.value ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground hover:border-primary/40"
@@ -122,10 +132,7 @@ export function EmailStep({
               </button>
             ))}
           </div>
-          {education === "高中" && (
-            <p className="text-xs text-muted-foreground mt-2">高中生可选「其他」，不影响匹配</p>
-          )}
-          <p className="text-xs text-muted-foreground mt-2">海外院校请参考 QS 排名对应选择；在读请选当前就读院校层级</p>
+          <p className="text-xs text-muted-foreground mt-2">海外院校可参考 QS 排名对应选择；在读请选当前就读院校</p>
         </div>
 
         <div>
@@ -219,7 +226,7 @@ export function EmailStep({
         <button
           type="button"
           onClick={onSubmit}
-          disabled={isPending || !email || !displayName || !education || !schoolTier || !matchStrategy}
+          disabled={isPending || !email || !displayName || !matchStrategy}
           className="flex-1 py-3 rounded-full bg-primary text-primary-foreground font-medium text-lg hover:bg-accent transition-colors disabled:opacity-50"
         >
           {isPending ? "提交中..." : "提交问卷"}
