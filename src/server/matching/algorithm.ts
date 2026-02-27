@@ -3,12 +3,38 @@ import {
   surveySections,
   matchingConfig,
   getQuestionById,
+  getSurveyVersion,
 } from "@/lib/survey-questions";
 import type {
   SliderQuestion,
   SingleQuestion,
   DimensionConfig,
+  MatchingConfig,
+  SurveySection,
 } from "@/lib/survey-questions";
+
+// ─── Matching context (version-aware) ───
+
+export interface MatchingContext {
+  config: MatchingConfig;
+  sections: SurveySection[];
+  questionLabels: Record<string, string>;
+}
+
+export function createMatchingContext(versionId: string): MatchingContext {
+  const version = getSurveyVersion(versionId);
+  const sections = version?.sections ?? surveySections;
+  const config = version?.matching ?? matchingConfig;
+  const questionLabels: Record<string, string> = {};
+  for (const section of sections) {
+    for (const q of section.questions) {
+      questionLabels[q.id] = q.question;
+    }
+  }
+  return { config, sections, questionLabels };
+}
+
+const defaultCtx = createMatchingContext("v2");
 
 // ─── Parsed survey data ───
 
@@ -36,13 +62,14 @@ export interface ProfileData {
 function shouldHardFilter(
   a: ParsedSurvey,
   b: ParsedSurvey,
-  profiles?: Map<string, ProfileData>,
+  profiles: Map<string, ProfileData> | undefined,
+  ctx: MatchingContext,
 ): boolean {
-  for (const config of matchingConfig.hardFilters) {
-    const aVal = a.answers[config.questionId];
-    const bVal = b.answers[config.questionId];
+  for (const filter of ctx.config.hardFilters) {
+    const aVal = a.answers[filter.questionId];
+    const bVal = b.answers[filter.questionId];
     if (typeof aVal === "string" && typeof bVal === "string") {
-      for (const [x, y] of config.incompatiblePairs) {
+      for (const [x, y] of filter.incompatiblePairs) {
         if (aVal === x && bVal === y) return true;
       }
     }
@@ -167,8 +194,8 @@ interface DimensionScore {
   score: number;
 }
 
-function computeDimensions(a: ParsedSurvey, b: ParsedSurvey): DimensionScore[] {
-  return matchingConfig.dimensions.map((dim: DimensionConfig) => ({
+function computeDimensions(a: ParsedSurvey, b: ParsedSurvey, ctx: MatchingContext): DimensionScore[] {
+  return ctx.config.dimensions.map((dim: DimensionConfig) => ({
     name: dim.name,
     weight: dim.weight,
     score: dim.items.reduce((sum, item) => {
@@ -178,24 +205,17 @@ function computeDimensions(a: ParsedSurvey, b: ParsedSurvey): DimensionScore[] {
   }));
 }
 
-function computeCompatibility(a: ParsedSurvey, b: ParsedSurvey): number {
-  const dims = computeDimensions(a, b);
+function computeCompatibility(a: ParsedSurvey, b: ParsedSurvey, ctx: MatchingContext): number {
+  const dims = computeDimensions(a, b, ctx);
   const raw = dims.reduce((sum, d) => sum + d.score * d.weight, 0);
   return Math.min(99, Math.max(55, Math.round(raw * 45 + 55)));
 }
 
 // ─── Reason generation ───
 
-const QUESTION_LABELS: Record<string, string> = {};
-for (const section of surveySections) {
-  for (const q of section.questions) {
-    QUESTION_LABELS[q.id] = q.question;
-  }
-}
-
-function generateReasons(a: ParsedSurvey, b: ParsedSurvey): string[] {
+function generateReasons(a: ParsedSurvey, b: ParsedSurvey, ctx: MatchingContext): string[] {
   const reasons: string[] = [];
-  const dims = computeDimensions(a, b);
+  const dims = computeDimensions(a, b, ctx);
   const sorted = [...dims].sort((x, y) => y.score - x.score);
 
   const topDim = sorted[0];
@@ -203,31 +223,36 @@ function generateReasons(a: ParsedSurvey, b: ParsedSurvey): string[] {
     reasons.push(`你们在「${topDim.name}」维度上高度契合`);
   }
 
-  const aSafety = a.answers["safety_source"] as string;
-  const bSafety = b.answers["safety_source"] as string;
-  if (aSafety === bSafety) {
-    const q = getQuestionById("safety_source") as SingleQuestion | undefined;
-    if (q) {
-      const opt = q.options.find((o) => o.value === aSafety);
-      if (opt) reasons.push(`你们的安全感来源一致：${opt.label.split("——")[0]}`);
+  // v2-specific checks — gracefully skip when question answers don't exist
+  const aSafety = a.answers["safety_source"];
+  const bSafety = b.answers["safety_source"];
+  if (typeof aSafety === "string" && typeof bSafety === "string") {
+    if (aSafety === bSafety) {
+      const q = getQuestionById("safety_source") as SingleQuestion | undefined;
+      if (q) {
+        const opt = q.options.find((o) => o.value === aSafety);
+        if (opt) reasons.push(`你们的安全感来源一致：${opt.label.split("——")[0]}`);
+      }
+    } else if (SAFETY_SOURCE_MATRIX[aSafety]?.[bSafety] >= 0.8) {
+      reasons.push(`你们的安全感需求形成完美的心理学互补`);
     }
-  } else if (SAFETY_SOURCE_MATRIX[aSafety]?.[bSafety] >= 0.8) {
-    reasons.push(`你们的安全感需求形成完美的心理学互补`);
   }
 
-  const aAnimal = a.answers["conflict_animal"] as string;
-  const bAnimal = b.answers["conflict_animal"] as string;
-  if (aAnimal === bAnimal) {
-    const q = getQuestionById("conflict_animal") as SingleQuestion | undefined;
-    if (q) {
-      const opt = q.options.find((o) => o.value === aAnimal);
-      if (opt) {
-        const animal = opt.label.split("——")[0];
-        reasons.push(`面对冲突时，你们都是${animal}型`);
+  const aAnimal = a.answers["conflict_animal"];
+  const bAnimal = b.answers["conflict_animal"];
+  if (typeof aAnimal === "string" && typeof bAnimal === "string") {
+    if (aAnimal === bAnimal) {
+      const q = getQuestionById("conflict_animal") as SingleQuestion | undefined;
+      if (q) {
+        const opt = q.options.find((o) => o.value === aAnimal);
+        if (opt) {
+          const animal = opt.label.split("——")[0];
+          reasons.push(`面对冲突时，你们都是${animal}型`);
+        }
       }
+    } else if (CONFLICT_ANIMAL_MATRIX[aAnimal]?.[bAnimal] >= 0.8) {
+      reasons.push(`面对冲突时，你们的处理模式能很好地互相缓冲`);
     }
-  } else if (CONFLICT_ANIMAL_MATRIX[aAnimal]?.[bAnimal] >= 0.8) {
-    reasons.push(`面对冲突时，你们的处理模式能很好地互相缓冲`);
   }
 
   const aFactors = Array.isArray(a.answers["realistic_factors"]) ? (a.answers["realistic_factors"] as string[]) : [];
@@ -237,7 +262,7 @@ function generateReasons(a: ParsedSurvey, b: ParsedSurvey): string[] {
     reasons.push(`你们都看重：${sharedFactors.slice(0, 2).join("、")}`);
   }
 
-  const sliderIds = matchingConfig.dimensions
+  const sliderIds = ctx.config.dimensions
     .flatMap((d) => d.items)
     .filter((item) => item.scorer === "slider")
     .map((item) => item.questionId);
@@ -246,7 +271,7 @@ function generateReasons(a: ParsedSurvey, b: ParsedSurvey): string[] {
     if (reasons.length >= 4) break;
     const sim = sliderSimilarity(a, b, id);
     if (sim >= 0.8) {
-      reasons.push(`你们在「${QUESTION_LABELS[id]?.slice(0, 15) ?? id}」上看法接近`);
+      reasons.push(`你们在「${ctx.questionLabels[id]?.slice(0, 15) ?? id}」上看法接近`);
     }
   }
 
@@ -272,6 +297,7 @@ export function findBestMatch(
   target: SurveyResponse,
   candidates: SurveyResponse[],
   profiles?: Map<string, ProfileData>,
+  ctx: MatchingContext = defaultCtx,
 ): MatchResult | null {
   const parsedTarget = parseSurvey(target);
   let bestMatch: MatchResult | null = null;
@@ -282,16 +308,16 @@ export function findBestMatch(
 
     const parsedCandidate = parseSurvey(candidate);
 
-    if (shouldHardFilter(parsedTarget, parsedCandidate, profiles)) continue;
+    if (shouldHardFilter(parsedTarget, parsedCandidate, profiles, ctx)) continue;
 
-    const score = computeCompatibility(parsedTarget, parsedCandidate);
+    const score = computeCompatibility(parsedTarget, parsedCandidate, ctx);
     if (score > bestScore) {
       bestScore = score;
       bestMatch = {
         user1Id: target.userId,
         user2Id: candidate.userId,
         compatibility: score,
-        reasons: generateReasons(parsedTarget, parsedCandidate),
+        reasons: generateReasons(parsedTarget, parsedCandidate, ctx),
       };
     }
   }
@@ -317,6 +343,7 @@ function sampleIndices(total: number, exclude: number, count: number): number[] 
 export function runMatchingRound(
   surveys: SurveyResponse[],
   profiles?: Map<string, ProfileData>,
+  ctx: MatchingContext = defaultCtx,
 ): MatchResult[] {
   const opted = surveys.filter((s) => s.completed && s.optedIn);
   const matched = new Set<string>();
@@ -341,12 +368,11 @@ export function runMatchingRound(
       for (let j = i + 1; j < opted.length; j++) {
         const p1 = parsedMap.get(opted[i].userId)!;
         const p2 = parsedMap.get(opted[j].userId)!;
-        if (shouldHardFilter(p1, p2, profiles)) continue;
-        edges.push({ i, j, score: computeCompatibility(p1, p2) });
+        if (shouldHardFilter(p1, p2, profiles, ctx)) continue;
+        edges.push({ i, j, score: computeCompatibility(p1, p2, ctx) });
       }
     }
   } else {
-    // Large pool: each user evaluates a random sample of candidates
     const seen = new Set<string>();
     for (let i = 0; i < opted.length; i++) {
       const candidates = sampleIndices(opted.length, i, SAMPLE_SIZE);
@@ -356,8 +382,8 @@ export function runMatchingRound(
         if (seen.has(key)) continue;
         seen.add(key);
         const p2 = parsedMap.get(opted[j].userId)!;
-        if (shouldHardFilter(p1, p2, profiles)) continue;
-        edges.push({ i: Math.min(i, j), j: Math.max(i, j), score: computeCompatibility(p1, p2) });
+        if (shouldHardFilter(p1, p2, profiles, ctx)) continue;
+        edges.push({ i: Math.min(i, j), j: Math.max(i, j), score: computeCompatibility(p1, p2, ctx) });
       }
     }
   }
@@ -379,7 +405,7 @@ export function runMatchingRound(
       user1Id: u1,
       user2Id: u2,
       compatibility: edge.score,
-      reasons: generateReasons(p1, p2),
+      reasons: generateReasons(p1, p2, ctx),
     });
   }
 

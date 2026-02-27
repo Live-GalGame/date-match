@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/server/db";
-import { runMatchingRound, type ProfileData } from "@/server/matching/algorithm";
+import {
+  runMatchingRound,
+  createMatchingContext,
+  type ProfileData,
+  type MatchResult,
+} from "@/server/matching/algorithm";
 import { sendMatchEmail } from "@/server/email/send-match";
 import { generateMatchInsight } from "@/server/llm/generate-insight";
+import { getSurveyVersion } from "@/lib/survey-questions";
 
 function getCurrentWeek(): string {
   const now = new Date();
@@ -13,11 +19,23 @@ function getCurrentWeek(): string {
   return `${now.getFullYear()}-W${String(week).padStart(2, "0")}`;
 }
 
+function parseSurveyVersionId(answers: string): string {
+  try {
+    const parsed = JSON.parse(answers);
+    return typeof parsed._surveyVersion === "string" ? parsed._surveyVersion : "v2";
+  } catch {
+    return "v2";
+  }
+}
+
 export async function POST(req: Request) {
   const authHeader = req.headers.get("authorization");
   if (authHeader !== `Bearer ${process.env.BETTER_AUTH_SECRET}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const url = new URL(req.url);
+  const dryRun = url.searchParams.get("dryRun") === "true";
 
   const week = getCurrentWeek();
 
@@ -43,13 +61,48 @@ export async function POST(req: Request) {
     });
   }
 
-  // Stage 1: 规则引擎初筛（心理学矩阵 + deal-breaker 硬过滤 + 全局最大权匹配）
-  const results = runMatchingRound(surveys, profileMap);
+  // Group surveys by version into pools
+  // "v3-lite+v2" users participate in both pools (they answered both sets of questions)
+  const versionPools = new Map<string, typeof surveys>();
+  for (const s of surveys) {
+    const versionStr = parseSurveyVersionId(s.answers);
+    const versions = versionStr.includes("+") ? versionStr.split("+") : [versionStr];
+    for (const v of versions) {
+      if (!getSurveyVersion(v)) continue;
+      if (!versionPools.has(v)) versionPools.set(v, []);
+      versionPools.get(v)!.push(s);
+    }
+  }
 
+  // Stage 1: 按版本分池匹配（大池优先），跨池去重已匹配用户
+  const allResults: MatchResult[] = [];
+  const matchedUsers = new Set<string>();
+  const poolStats: Record<string, { eligible: number; matched: number }> = {};
+
+  const sortedPools = [...versionPools.entries()].sort(
+    (a, b) => b[1].length - a[1].length,
+  );
+
+  for (const [vId, poolSurveys] of sortedPools) {
+    const available = poolSurveys.filter((s) => !matchedUsers.has(s.userId));
+    const ctx = createMatchingContext(vId);
+    const results = runMatchingRound(available, profileMap, ctx);
+
+    poolStats[vId] = { eligible: available.length, matched: results.length * 2 };
+
+    for (const r of results) {
+      matchedUsers.add(r.user1Id);
+      matchedUsers.add(r.user2Id);
+      allResults.push(r);
+    }
+  }
+
+  // Stage 2: 落库 + 可选 LLM/邮件
   const surveyMap = new Map(surveys.map((s) => [s.userId, s]));
   let llmSuccess = 0;
+  let matchesCreated = 0;
 
-  for (const result of results) {
+  for (const result of allResults) {
     const existing = await db.match.findUnique({
       where: {
         user1Id_user2Id_week: {
@@ -70,8 +123,12 @@ export async function POST(req: Request) {
         week,
       },
     });
+    matchesCreated++;
 
-    // Stage 2: LLM 精筛 — 为规则匹配的结果生成 AI 牵线文案
+    // dryRun: 只落库，跳过 LLM 和邮件
+    if (dryRun) continue;
+
+    // LLM insight generation
     let aiInsight: string | undefined;
     try {
       const s1 = surveyMap.get(result.user1Id);
@@ -128,7 +185,10 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     week,
-    matchesCreated: results.length,
+    dryRun,
+    matchesCreated,
     llmInsightsGenerated: llmSuccess,
+    poolStats,
+    totalEligible: surveys.length,
   });
 }
