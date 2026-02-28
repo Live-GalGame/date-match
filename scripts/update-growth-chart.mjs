@@ -1,31 +1,24 @@
 #!/usr/bin/env node
 import { writeFileSync } from "node:fs";
 
-const DB_URL = process.env.DATABASE_URL;
-const DB_TOKEN = process.env.TURSO_AUTH_TOKEN;
+import pg from "pg";
 
-if (!DB_URL || !DB_TOKEN) {
-  console.error("Missing DATABASE_URL or TURSO_AUTH_TOKEN");
+const DB_URL = process.env.DATABASE_URL;
+
+if (!DB_URL) {
+  console.error("Missing DATABASE_URL");
   process.exit(1);
 }
 
-async function queryTurso(sql) {
-  const httpUrl = DB_URL.replace("libsql://", "https://");
-  const res = await fetch(`${httpUrl}/v2/pipeline`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${DB_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      requests: [{ type: "execute", stmt: { sql } }, { type: "close" }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Turso HTTP ${res.status}: ${await res.text()}`);
-  const json = await res.json();
-  const first = json.results[0];
-  if (first.type === "error") throw new Error(JSON.stringify(first.error));
-  return first.response.result;
+async function queryPg(sql) {
+  const client = new pg.Client({ connectionString: DB_URL });
+  await client.connect();
+  try {
+    const res = await client.query(sql);
+    return res.rows;
+  } finally {
+    await client.end();
+  }
 }
 
 function fmt(n) {
@@ -167,14 +160,14 @@ function generateChart(data) {
 }
 
 // Main
-const result = await queryTurso(
-  `SELECT DATE(createdAt) as date, COUNT(*) as new_users, SUM(COUNT(*)) OVER (ORDER BY DATE(createdAt)) as cumulative FROM "User" GROUP BY DATE(createdAt) ORDER BY date`
+const rows = await queryPg(
+  `SELECT DATE("createdAt") as date, COUNT(*)::int as new_users, SUM(COUNT(*))  OVER (ORDER BY DATE("createdAt"))::int as cumulative FROM "User" GROUP BY DATE("createdAt") ORDER BY date`
 );
 
-const data = result.rows.map((row) => ({
-  date: typeof row[0] === "object" ? row[0].value : String(row[0]),
-  newUsers: parseInt(typeof row[1] === "object" ? row[1].value : row[1]),
-  cumulative: parseInt(typeof row[2] === "object" ? row[2].value : row[2]),
+const data = rows.map((row) => ({
+  date: row.date instanceof Date ? row.date.toISOString().split("T")[0] : String(row.date),
+  newUsers: parseInt(row.new_users),
+  cumulative: parseInt(row.cumulative),
 }));
 
 const svg = generateChart(data);

@@ -29,8 +29,8 @@ jobs:
       - name: Generate growth chart
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
         run: |
+          npm install pg
           mkdir -p _site
           node scripts/update-growth-chart.mjs
           cp public/growth-chart.svg _site/growth-chart.svg
