@@ -284,6 +284,30 @@ function generateReasons(a: ParsedSurvey, b: ParsedSurvey, ctx: MatchingContext)
   return reasons.slice(0, 4);
 }
 
+// ─── Match strategy ───
+
+const STRATEGY_LIMITS: Record<string, number> = {
+  "1": 1,
+  "2-3": 3,
+  "4+": 5,
+};
+
+function getMatchLimit(answers: Record<string, number | string | string[]>): number {
+  const raw = answers.matchStrategy;
+  if (typeof raw === "string" && raw in STRATEGY_LIMITS) return STRATEGY_LIMITS[raw];
+  return 1;
+}
+
+// "1" users strongly prefer other "1" users; slight bonus for same-strategy pairs
+function strategyBonus(a: ParsedSurvey, b: ParsedSurvey): number {
+  const aStrat = typeof a.answers.matchStrategy === "string" ? a.answers.matchStrategy : "";
+  const bStrat = typeof b.answers.matchStrategy === "string" ? b.answers.matchStrategy : "";
+  if (aStrat === "1" && bStrat === "1") return 3;
+  if (aStrat === bStrat) return 1;
+  if (aStrat === "1" || bStrat === "1") return -2;
+  return 0;
+}
+
 // ─── Matching ───
 
 export interface MatchResult {
@@ -346,7 +370,6 @@ export function runMatchingRound(
   ctx: MatchingContext = defaultCtx,
 ): MatchResult[] {
   const opted = surveys.filter((s) => s.completed && s.optedIn);
-  const matched = new Set<string>();
   const results: MatchResult[] = [];
 
   interface Edge {
@@ -360,6 +383,15 @@ export function runMatchingRound(
     parsedMap.set(s.userId, parseSurvey(s));
   }
 
+  // Per-user match limit from matchStrategy; track how many times each user has been matched
+  const matchLimits = new Map<string, number>();
+  const matchCounts = new Map<string, number>();
+  for (const s of opted) {
+    const parsed = parsedMap.get(s.userId)!;
+    matchLimits.set(s.userId, getMatchLimit(parsed.answers));
+    matchCounts.set(s.userId, 0);
+  }
+
   const edges: Edge[] = [];
   const useFull = opted.length <= MAX_FULL_GRAPH;
 
@@ -369,7 +401,8 @@ export function runMatchingRound(
         const p1 = parsedMap.get(opted[i].userId)!;
         const p2 = parsedMap.get(opted[j].userId)!;
         if (shouldHardFilter(p1, p2, profiles, ctx)) continue;
-        edges.push({ i, j, score: computeCompatibility(p1, p2, ctx) });
+        const base = computeCompatibility(p1, p2, ctx);
+        edges.push({ i, j, score: base + strategyBonus(p1, p2) });
       }
     }
   } else {
@@ -383,20 +416,30 @@ export function runMatchingRound(
         seen.add(key);
         const p2 = parsedMap.get(opted[j].userId)!;
         if (shouldHardFilter(p1, p2, profiles, ctx)) continue;
-        edges.push({ i: Math.min(i, j), j: Math.max(i, j), score: computeCompatibility(p1, p2, ctx) });
+        const base = computeCompatibility(p1, p2, ctx);
+        edges.push({ i: Math.min(i, j), j: Math.max(i, j), score: base + strategyBonus(p1, p2) });
       }
     }
   }
 
   edges.sort((a, b) => b.score - a.score);
 
+  // Dedup: don't create the same (u1,u2) pair twice
+  const paired = new Set<string>();
+
   for (const edge of edges) {
     const u1 = opted[edge.i].userId;
     const u2 = opted[edge.j].userId;
-    if (matched.has(u1) || matched.has(u2)) continue;
 
-    matched.add(u1);
-    matched.add(u2);
+    if ((matchCounts.get(u1)!) >= (matchLimits.get(u1)!)) continue;
+    if ((matchCounts.get(u2)!) >= (matchLimits.get(u2)!)) continue;
+
+    const pairKey = u1 < u2 ? `${u1}:${u2}` : `${u2}:${u1}`;
+    if (paired.has(pairKey)) continue;
+    paired.add(pairKey);
+
+    matchCounts.set(u1, (matchCounts.get(u1)!) + 1);
+    matchCounts.set(u2, (matchCounts.get(u2)!) + 1);
 
     const p1 = parsedMap.get(u1)!;
     const p2 = parsedMap.get(u2)!;
@@ -404,7 +447,7 @@ export function runMatchingRound(
     results.push({
       user1Id: u1,
       user2Id: u2,
-      compatibility: edge.score,
+      compatibility: computeCompatibility(p1, p2, ctx),
       reasons: generateReasons(p1, p2, ctx),
     });
   }
