@@ -47,3 +47,7 @@ next-env.d.ts
 *.jpg
 mac_*
 .env*.local
+
+# local dev database
+docker-compose.dev.yml
+scripts/seed-local.ts
