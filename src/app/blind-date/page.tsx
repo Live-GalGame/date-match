@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -187,7 +187,7 @@ function MatchCard({
   );
 }
 
-export default function BlindDatePage() {
+function BlindDateContent() {
   const params = useSearchParams();
   const userId = params.get("u");
   const token = params.get("t");
@@ -336,5 +336,17 @@ export default function BlindDatePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function BlindDatePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    }>
+      <BlindDateContent />
+    </Suspense>
   );
 }
