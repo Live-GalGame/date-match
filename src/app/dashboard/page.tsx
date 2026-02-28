@@ -223,6 +223,7 @@ function ProfileCard({
 
   useEffect(() => {
     if (profile) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional sync from async query data
       setForm({
         displayName: profile.displayName,
         gender: profile.gender,

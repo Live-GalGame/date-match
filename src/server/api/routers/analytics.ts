@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { createTRPCRouter, publicProcedure } from "../trpc";
-import { v2Deep, v3Lite } from "@/lib/survey-questions";
+import { v2Deep, v3Lite, vNeptune } from "@/lib/survey-questions";
 import type { SurveyVersion, SurveyQuestion } from "@/lib/survey-versions/types";
 
 type Answers = Record<string, unknown>;
@@ -271,7 +271,7 @@ export const analyticsRouter = createTRPCRouter({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "无效的访问令牌" });
       }
 
-      const [responses, profiles, helicopterPilots, users] = await Promise.all([
+      const [responses, profiles, helicopterPilots, users, neptuneResponses] = await Promise.all([
         ctx.db.surveyResponse.findMany({
           where: { completed: true },
           select: { answers: true },
@@ -307,6 +307,10 @@ export const analyticsRouter = createTRPCRouter({
               select: { completed: true, optedIn: true, answers: true },
             },
           },
+          orderBy: { createdAt: "desc" },
+        }),
+        ctx.db.neptuneResponse.findMany({
+          select: { displayName: true, mbti: true, zodiac: true, answers: true, createdAt: true },
           orderBy: { createdAt: "desc" },
         }),
       ]);
@@ -381,6 +385,25 @@ export const analyticsRouter = createTRPCRouter({
         if (u.emailVerified) referralStats[code]!.verified++;
       }
 
+      const neptuneAnswersAll: Answers[] = neptuneResponses.map((r) => {
+        try { return JSON.parse(r.answers); } catch { return {}; }
+      });
+      const neptuneQuestionStats = vNeptune.sections.flatMap((section) =>
+        section.questions.map((q) => aggregateQuestion(q, neptuneAnswersAll)),
+      );
+      const neptuneStats = {
+        totalResponses: neptuneResponses.length,
+        mbtiDistribution: countField(neptuneResponses.map((r) => r.mbti)),
+        zodiacDistribution: countField(neptuneResponses.map((r) => r.zodiac)),
+        questionStats: neptuneQuestionStats,
+        participants: neptuneResponses.map((r) => ({
+          displayName: r.displayName,
+          mbti: r.mbti,
+          zodiac: r.zodiac,
+          createdAt: r.createdAt.toISOString(),
+        })),
+      };
+
       return {
         totalResponses: responses.length,
         totalProfiles: profiles.length,
@@ -392,6 +415,7 @@ export const analyticsRouter = createTRPCRouter({
         },
         referralStats,
         userList,
+        neptuneStats,
       };
     }),
 });

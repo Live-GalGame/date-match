@@ -1,5 +1,6 @@
 import v2Deep from "./survey-versions/v2";
 import v3Lite from "./survey-versions/v3-lite";
+import vNeptune from "./survey-versions/v-neptune";
 import type { SurveyVersion, SurveyQuestion, QuestionType } from "./survey-versions/types";
 
 // ─── Re-export types ───
@@ -25,13 +26,14 @@ export type {
 const versions: Record<string, SurveyVersion> = {
   "v2": v2Deep,
   "v3-lite": v3Lite,
+  "neptune": vNeptune,
 };
 
 export function getSurveyVersion(id: string): SurveyVersion | undefined {
   return versions[id];
 }
 
-export { v3Lite, v2Deep };
+export { v3Lite, v2Deep, vNeptune };
 
 // ─── Default active version (backward compat for matching algorithm) ───
 

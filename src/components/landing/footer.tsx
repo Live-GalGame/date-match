@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 export function Footer() {
@@ -42,6 +43,42 @@ export function Footer() {
             </ul>
           </div>
         </div>
+      </div>
+
+      {/* Sponsor banner */}
+      <div className="max-w-5xl mx-auto mt-12 pt-8 border-t border-white/10">
+        <p className="text-xs text-white/30 uppercase tracking-widest mb-4 text-center">感谢赞助商</p>
+        <a
+          href="https://packyapi.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex flex-col sm:flex-row items-center justify-center gap-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors px-6 py-5"
+        >
+          <Image
+            src="/packycode-logo.svg"
+            alt="PackyCode"
+            width={140}
+            height={32}
+            className="opacity-70 group-hover:opacity-100 transition-opacity invert"
+          />
+          <p className="text-xs text-white/50 group-hover:text-white/70 transition-colors text-center sm:text-left">
+            感谢 <span className="text-white/70 font-medium">PackyCode</span> 提供 API 赞助支持 ·
+            稳定高效的 AI API 中转服务，支持 Claude Code、Codex、Gemini 等
+          </p>
+        </a>
+      </div>
+
+      {/* Donation QR */}
+      <div className="max-w-5xl mx-auto mt-10 pt-8 border-t border-white/10 flex flex-col items-center gap-4">
+        <p className="text-sm font-medium text-white/70 tracking-wide">买杯咖啡支持一下</p>
+        <Image
+          src="https://bhsalipj3wlj6tkb.public.blob.vercel-storage.com/donation-qr.jpg"
+          alt="赞赏码"
+          width={224}
+          height={224}
+          className="rounded-xl w-44 h-44 sm:w-52 sm:h-52 md:w-[224px] md:h-[224px]"
+        />
+        <p className="text-sm text-white/50">微信扫码赞赏，感谢您的支持</p>
       </div>
     </footer>
   );

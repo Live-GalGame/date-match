@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import type { TurnstileInstance } from "@marsidev/react-turnstile";
 import { trpc } from "@/lib/trpc";
+import { useHydrated } from "@/lib/use-hydrated";
 import { getSurveyVersion } from "@/lib/survey-questions";
 import type { SingleQuestion } from "@/lib/survey-versions/types";
 import {
@@ -20,6 +21,7 @@ import { VersionSelector } from "@/components/survey/version-selector";
 import { DeepIntro } from "@/components/survey/deep-intro";
 import { LiteSurveyFlow } from "@/components/survey/lite-survey-flow";
 import { DeepSurveyFlow } from "@/components/survey/deep-survey-flow";
+import { NeptuneSurveyFlow } from "@/components/survey/neptune-survey-flow";
 import { EmailStep } from "@/components/survey/email-step";
 import { SubmittedState } from "@/components/survey/submitted-state";
 
@@ -36,8 +38,7 @@ function SurveyPageInner() {
 
   // Prevent hydration mismatch: server has no localStorage, so we defer
   // rendering real content until after the first client-side effect.
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => { setHydrated(true); }, []);
+  const hydrated = useHydrated();
 
   const [referralCode] = useState<string>(() => {
     const fromUrl = typeof window !== "undefined" ? searchParams.get("code") ?? "" : "";
@@ -68,7 +69,7 @@ function SurveyPageInner() {
   const [genderDone, setGenderDone] = useState(Boolean(savedState.genderDone));
 
   const [selectedVersion, setSelectedVersion] = useState<VersionId | null>(
-    savedState.selectedVersion === "v3-lite" || savedState.selectedVersion === "v2" ? savedState.selectedVersion : null
+    savedState.selectedVersion === "v3-lite" || savedState.selectedVersion === "v2" || savedState.selectedVersion === "neptune" ? savedState.selectedVersion : null
   );
   const [currentIndex, setCurrentIndex] = useState(typeof savedState.currentIndex === "number" ? savedState.currentIndex : 0);
   const [answers, setAnswers] = useState<Answers>(savedState.answers && typeof savedState.answers === "object" ? savedState.answers : {});
@@ -77,6 +78,7 @@ function SurveyPageInner() {
   const [displayName, setDisplayName] = useState(savedState.displayName || "");
   const [education, setEducation] = useState(savedState.education || "");
   const [schoolTier, setSchoolTier] = useState(savedState.schoolTier || "");
+  const [matchStrategy, setMatchStrategy] = useState(savedState.matchStrategy || "");
 
   // ─── UI state ───
   const [submitted, setSubmitted] = useState(false);
@@ -95,10 +97,10 @@ function SurveyPageInner() {
       localStorage.setItem("surveyState", JSON.stringify({
         answers, liteAnswers, selectedVersion, currentIndex,
         gender, otherGender, datingPreference, genderDone,
-        email, displayName, education, schoolTier,
+        email, displayName, education, schoolTier, matchStrategy,
       }));
     } catch (e) { console.error("Failed to save survey state:", e); }
-  }, [answers, liteAnswers, selectedVersion, currentIndex, gender, otherGender, datingPreference, genderDone, email, displayName, education, schoolTier, submitted]);
+  }, [answers, liteAnswers, selectedVersion, currentIndex, gender, otherGender, datingPreference, genderDone, email, displayName, education, schoolTier, matchStrategy, submitted]);
 
   // ─── Mutations ───
   const mutation = trpc.survey.submitPublic.useMutation({
@@ -154,9 +156,9 @@ function SurveyPageInner() {
   }
 
   function handleSubmit() {
-    if (!email || !displayName || !education || !schoolTier) return;
+    if (!email || !displayName || !education || !schoolTier || !matchStrategy) return;
     setEmailSendIssue(null);
-    const mergedAnswers = { ...liteAnswers, ...answers };
+    const mergedAnswers = { ...liteAnswers, ...answers, matchStrategy };
     const versionTag = hasLiteData ? "v3-lite+v2" : (selectedVersion ?? undefined);
     const submitGender = gender === "其他" ? otherGender : gender;
     mutation.mutate({
@@ -208,6 +210,15 @@ function SurveyPageInner() {
     return <VersionSelector onSelect={setSelectedVersion} />;
   }
 
+  if (selectedVersion === "neptune") {
+    return (
+      <NeptuneSurveyFlow
+        displayName={displayName}
+        onBack={() => setSelectedVersion(null)}
+      />
+    );
+  }
+
   if (showDeepIntro) {
     return <DeepIntro onStart={startDeep} />;
   }
@@ -241,6 +252,7 @@ function SurveyPageInner() {
         displayName={displayName} setDisplayName={setDisplayName}
         education={education} setEducation={setEducation}
         schoolTier={schoolTier} setSchoolTier={setSchoolTier}
+        matchStrategy={matchStrategy} setMatchStrategy={setMatchStrategy}
         email={email} setEmail={setEmail}
         honeypot={honeypot} setHoneypot={setHoneypot}
         turnstileRef={turnstileRef}

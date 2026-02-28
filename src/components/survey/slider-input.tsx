@@ -36,7 +36,7 @@ export function SliderInput({
     if (value === null) {
       onChange(defaultValue);
     }
-  }, []);
+  }, [value, onChange, defaultValue]);
 
   return (
     <div className="py-6">

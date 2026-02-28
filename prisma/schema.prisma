@@ -4,7 +4,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
 }
 
 model User {
@@ -19,9 +19,11 @@ model User {
   profile          Profile?
   qualification    Qualification?
   surveyResponse   SurveyResponse?
-  sentMatches      Match[]  @relation("MatchUser1")
-  receivedMatches  Match[]  @relation("MatchUser2")
-  referralCode     String    @default("")
+  sentMatches      Match[]          @relation("MatchUser1")
+  receivedMatches  Match[]          @relation("MatchUser2")
+  matchFeedbacks   MatchFeedback[]
+  interviews       Interview[]
+  referralCode     String           @default("")
   sessions         Session[]
   accounts         Account[]
 }
@@ -79,6 +81,11 @@ model Profile {
   major            String?
   classYear   String?
   bio         String?
+
+  // Deal-breaker system: JSON arrays of trait IDs
+  traits       String @default("[]")
+  dealBreakers String @default("[]")
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -124,18 +131,79 @@ model HelicopterPilot {
   createdAt   DateTime @default(now())
 }
 
+model NeptuneResponse {
+  id          String   @id @default(cuid())
+  displayName String
+  mbti        String   @default("")
+  zodiac      String   @default("")
+  answers     String   @default("{}")
+  createdAt   DateTime @default(now())
+}
+
 model Match {
   id              String   @id @default(cuid())
   user1Id         String
   user2Id         String
   compatibility   Float
   reasons         String   @default("[]") // JSON array of match reasons
+  aiInsight       String?  // LLM-generated personalized narrative
   week            String   // e.g. "2026-W08"
+  status          String   @default("revealed") // anonymous | revealed | expired
   emailSentAt     DateTime?
   createdAt       DateTime @default(now())
 
-  user1 User @relation("MatchUser1", fields: [user1Id], references: [id])
-  user2 User @relation("MatchUser2", fields: [user2Id], references: [id])
+  user1     User            @relation("MatchUser1", fields: [user1Id], references: [id])
+  user2     User            @relation("MatchUser2", fields: [user2Id], references: [id])
+  feedbacks MatchFeedback[]
 
   @@unique([user1Id, user2Id, week])
+}
+
+model Interview {
+  id          String   @id @default(cuid())
+  userId      String
+  inviteToken String   @unique
+
+  // JSON array: [{ role: "user"|"assistant", content: "...", ts: "..." }]
+  messages    String   @default("[]")
+
+  // active | completed | extracted
+  status      String   @default("active")
+  turnCount   Int      @default(0)
+
+  // Extracted rich-text portraits (populated after extraction LLM call)
+  selfPortrait  String?
+  idealPartner  String?
+
+  // Full structured extraction JSON blob
+  extraction    String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model MatchFeedback {
+  id           String   @id @default(cuid())
+  matchId      String
+  userId       String
+
+  // 短期反馈：邮件一键评分 1-5
+  initialScore Int?
+
+  // 中期反馈：进展状态
+  // chatting_well | occasionally | added_no_chat | incompatible | no_response
+  status       String?
+
+  // 低分时的可选原因标签 JSON array: ["三观不合", "聊天敷衍", ...]
+  issues       String   @default("[]")
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, userId])
 }
