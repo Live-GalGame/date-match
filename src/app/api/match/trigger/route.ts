@@ -7,6 +7,7 @@ import {
   type MatchResult,
 } from "@/server/matching/algorithm";
 import { sendMatchEmail } from "@/server/email/send-match";
+import { sendBlindDateInvite } from "@/server/email/send-blind-date-invite";
 import { generateMatchInsight } from "@/server/llm/generate-insight";
 import { getSurveyVersion } from "@/lib/survey-questions";
 
@@ -36,6 +37,8 @@ export async function POST(req: Request) {
 
   const url = new URL(req.url);
   const dryRun = url.searchParams.get("dryRun") === "true";
+  const mode = url.searchParams.get("mode") === "anonymous" ? "anonymous" as const : "normal" as const;
+  const anonymousLimit = mode === "anonymous" ? 5 : undefined;
 
   const week = getCurrentWeek();
 
@@ -86,7 +89,9 @@ export async function POST(req: Request) {
   for (const [vId, poolSurveys] of sortedPools) {
     const available = poolSurveys.filter((s) => !matchedUsers.has(s.userId));
     const ctx = createMatchingContext(vId);
-    const results = runMatchingRound(available, profileMap, ctx);
+    const results = runMatchingRound(available, profileMap, ctx,
+      anonymousLimit ? { overrideMatchLimit: anonymousLimit } : undefined,
+    );
 
     poolStats[vId] = { eligible: available.length, matched: results.length * 2 };
 
@@ -121,6 +126,7 @@ export async function POST(req: Request) {
         compatibility: result.compatibility,
         reasons: JSON.stringify(result.reasons),
         week,
+        status: mode === "anonymous" ? "anonymous" : "revealed",
       },
     });
     matchesCreated++;
@@ -128,7 +134,7 @@ export async function POST(req: Request) {
     // dryRun: 只落库，跳过 LLM 和邮件
     if (dryRun) continue;
 
-    // LLM insight generation
+    // LLM insight generation (both modes benefit from AI narrative)
     let aiInsight: string | undefined;
     try {
       const s1 = surveyMap.get(result.user1Id);
@@ -149,6 +155,9 @@ export async function POST(req: Request) {
     } catch (err) {
       console.error(`[LLM] Failed for match ${match.id}:`, err);
     }
+
+    // Anonymous mode: skip direct match emails (blind-date invites sent in batch below)
+    if (mode === "anonymous") continue;
 
     const [user1, user2] = await Promise.all([
       db.user.findUnique({ where: { id: result.user1Id } }),
@@ -183,11 +192,50 @@ export async function POST(req: Request) {
     }
   }
 
+  // Anonymous mode: send one notification email per user (not per match)
+  let blindInvitesSent = 0;
+  if (mode === "anonymous" && !dryRun && matchesCreated > 0) {
+    const matchedUserIds = new Set<string>();
+    for (const r of allResults) {
+      matchedUserIds.add(r.user1Id);
+      matchedUserIds.add(r.user2Id);
+    }
+
+    const usersToNotify = await db.user.findMany({
+      where: { id: { in: [...matchedUserIds] } },
+      select: { id: true, email: true, name: true },
+    });
+
+    // Count matches per user for the email copy
+    const matchCountByUser = new Map<string, number>();
+    for (const r of allResults) {
+      matchCountByUser.set(r.user1Id, (matchCountByUser.get(r.user1Id) ?? 0) + 1);
+      matchCountByUser.set(r.user2Id, (matchCountByUser.get(r.user2Id) ?? 0) + 1);
+    }
+
+    for (const u of usersToNotify) {
+      try {
+        await sendBlindDateInvite({
+          userId: u.id,
+          toEmail: u.email,
+          displayName: u.name,
+          matchCount: matchCountByUser.get(u.id) ?? 0,
+          week,
+        });
+        blindInvitesSent++;
+      } catch (err) {
+        console.error(`[BlindDate] Email failed for ${u.id}:`, err);
+      }
+    }
+  }
+
   return NextResponse.json({
     week,
+    mode,
     dryRun,
     matchesCreated,
     llmInsightsGenerated: llmSuccess,
+    blindInvitesSent,
     poolStats,
     totalEligible: surveys.length,
   });

@@ -364,10 +364,15 @@ function sampleIndices(total: number, exclude: number, count: number): number[] 
   return [...indices];
 }
 
+export interface MatchingOptions {
+  overrideMatchLimit?: number;
+}
+
 export function runMatchingRound(
   surveys: SurveyResponse[],
   profiles?: Map<string, ProfileData>,
   ctx: MatchingContext = defaultCtx,
+  options?: MatchingOptions,
 ): MatchResult[] {
   const opted = surveys.filter((s) => s.completed && s.optedIn);
   const results: MatchResult[] = [];
@@ -383,12 +388,11 @@ export function runMatchingRound(
     parsedMap.set(s.userId, parseSurvey(s));
   }
 
-  // Per-user match limit from matchStrategy; track how many times each user has been matched
   const matchLimits = new Map<string, number>();
   const matchCounts = new Map<string, number>();
   for (const s of opted) {
     const parsed = parsedMap.get(s.userId)!;
-    matchLimits.set(s.userId, getMatchLimit(parsed.answers));
+    matchLimits.set(s.userId, options?.overrideMatchLimit ?? getMatchLimit(parsed.answers));
     matchCounts.set(s.userId, 0);
   }
 
