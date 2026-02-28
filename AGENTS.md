@@ -164,8 +164,9 @@ npx prisma generate && vercel deploy --prod
 |------|------|
 | `src/app/api/trpc/[trpc]/` | tRPC HTTP handler |
 | `src/app/api/auth/[...all]/` | Better Auth 路由（Magic Link 等） |
-| `src/app/api/match/trigger/` | 匹配触发入口（Bearer token 鉴权，两阶段管线） |
-| `src/app/api/feedback/` | 邮件一键评分端点（HMAC 签名，无需登录） |
+| `src/app/api/match/trigger/` | 匹配触发入口（Bearer token 鉴权，两阶段管线，支持 `?mode=anonymous`） |
+| `src/app/api/feedback/` | 匹配反馈（GET 快速评分+重定向，POST 详细反馈） |
+| `src/app/api/blind-date/` | 匿名盲盒匹配 API（GET 卡片列表，POST 评分+双向奔赴检测） |
 | `src/app/api/admin/` | 管理接口 |
 | `src/app/api/verify-email/` | 邮箱验证回调 |
 
@@ -179,6 +180,8 @@ npx prisma generate && vercel deploy --prod
 | `/onboarding/qualification` | 学历认证 |
 | `/auth` | 登录页 |
 | `/dashboard` | 用户面板（需登录） |
+| `/blind-date` | 匿名盲盒匹配页（HMAC token 鉴权，无需登录） |
+| `/feedback` | 匹配详细反馈页（HMAC token 鉴权，无需登录） |
 | `/email-verified` | 邮箱验证成功页 |
 | `/metrics` | 数据统计面板 |
 | `/metrics/user` | 用户明细表 |
@@ -479,6 +482,49 @@ vercel deploy --prod
 - Tailwind CSS 样式，使用 shadcn 主题变量（`bg-primary`, `text-muted-foreground` 等）
 - 无注释叙述代码——注释仅用于非显而易见的决策或 trade-off
 - 问卷提交用 `publicProcedure`（无需登录），Dashboard 等管理功能用 `protectedProcedure`
+
+## 匹配触发操作
+
+匹配不会自动运行，需要手动调用 `POST /api/match/trigger`（Bearer token = `BETTER_AUTH_SECRET`）。
+
+### 两种触发模式
+
+| 模式 | 参数 | 每人匹配数 | 邮件 | Match.status |
+|------|------|-----------|------|-------------|
+| **anonymous（盲推，推荐）** | `?mode=anonymous` | 5 人 | `sendBlindDateInvite` → 引导去 `/blind-date` 页面 | `anonymous` |
+| **normal（直推）** | 默认 | 取决于用户 `matchStrategy`（通常 1 人） | `sendMatchEmail` → 直接暴露对方邮箱+姓名 | `revealed` |
+
+```bash
+# 匿名盲推（推荐，每人 5 个匿名对象，双向奔赴后才揭示）
+curl -X POST "https://www.date-match.online/api/match/trigger?mode=anonymous" \
+  -H "Authorization: Bearer $BETTER_AUTH_SECRET"
+
+# 直推（直接发匹配邮件，暴露联系方式）
+curl -X POST "https://www.date-match.online/api/match/trigger" \
+  -H "Authorization: Bearer $BETTER_AUTH_SECRET"
+
+# Dry run（只落库不发邮件，用于测试）
+curl -X POST "https://www.date-match.online/api/match/trigger?mode=anonymous&dryRun=true" \
+  -H "Authorization: Bearer $BETTER_AUTH_SECRET"
+```
+
+### 匿名盲推用户流程
+
+```
+Admin 触发 ?mode=anonymous → 每人匹配 5 个对象 → Match(status=anonymous) 落库
+  → LLM 生成牵线语 → 每人一封通知邮件（sendBlindDateInvite）
+  → 用户点邮件链接 → /blind-date 页面看匿名卡片 + 打分
+  → 双方都 ≥4 星 → Match.status 变 revealed → 自动发揭示邮件（sendMatchEmail）
+```
+
+### 反馈系统
+
+| 入口 | 说明 |
+|------|------|
+| 匹配邮件底部 emoji | 点击 → GET `/api/feedback` 记录快速评分 → 302 重定向到 `/feedback` 详细页 |
+| 邮件"想说更多"链接 | 直达 `/feedback` 详细页 |
+| `/feedback` 页面 | 评分 + 不满意原因标签（8 选项）+ 自由文本 + 申请重新匹配 → POST `/api/feedback` |
+| `/blind-date` 页面 | 匿名卡片评分 → POST `/api/blind-date` → 双向奔赴自动检测 |
 
 ## ⚠️ 提交前检查清单
 
