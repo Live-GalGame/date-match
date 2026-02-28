@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -18,7 +18,7 @@ const ISSUE_TAGS = [
   "匹配理由不准确",
 ];
 
-export default function FeedbackPage() {
+function FeedbackContent() {
   const params = useSearchParams();
   const matchId = params.get("m");
   const userId = params.get("u");
@@ -231,5 +231,17 @@ export default function FeedbackPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function FeedbackPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    }>
+      <FeedbackContent />
+    </Suspense>
   );
 }
