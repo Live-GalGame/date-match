@@ -8,7 +8,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/server/db";
 import { chatCompletion, type ChatMessage } from "@/server/interview/llm";
-import { buildInterviewSystemPrompt, MAX_INTERVIEW_TURNS, INTERVIEW_COMPLETE_MARKER } from "@/server/interview/prompts";
+import {
+  buildInterviewSystemPrompt,
+  MAX_INTERVIEW_TURNS,
+  INTERVIEW_COMPLETE_MARKER,
+  parseSuggestedReplies,
+} from "@/server/interview/prompts";
 import { formatSurveyContext } from "@/server/interview/format-context";
 import { extractInterviewProfile } from "@/server/interview/extract";
 
@@ -56,7 +61,7 @@ function buildSurveyContext(interview: NonNullable<Awaited<ReturnType<typeof loa
   return context;
 }
 
-// ─── GET: Fetch session state ───
+// ─── GET: Fetch session state (auto-generates opening if new) ───
 
 export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token");
@@ -69,14 +74,62 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid or expired token" }, { status: 404 });
   }
 
-  const messages = JSON.parse(interview.messages) as StoredMessage[];
+  const storedMessages = JSON.parse(interview.messages) as StoredMessage[];
+  const userName = interview.user.name ?? interview.user.profile?.displayName ?? "";
+
+  // New session with no messages — generate the AI's opening proactively
+  if (storedMessages.length === 0 && interview.status === "active") {
+    const surveyContext = buildSurveyContext(interview);
+    const systemPrompt = buildInterviewSystemPrompt(surveyContext);
+
+    const opening = await chatCompletion(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: "[系统：用户刚进入访谈页面，请发送你的开场白。]" },
+      ],
+      { temperature: 0.9, maxTokens: 600 },
+    );
+
+    if (opening) {
+      const rawContent = opening.replace(INTERVIEW_COMPLETE_MARKER, "").trim();
+      const { cleanText, suggestedReplies } = parseSuggestedReplies(rawContent);
+      const now = new Date().toISOString();
+      const assistantMsg: StoredMessage = { role: "assistant", content: rawContent, ts: now };
+
+      await db.interview.update({
+        where: { id: interview.id },
+        data: { messages: JSON.stringify([assistantMsg]) },
+      });
+
+      return NextResponse.json({
+        id: interview.id,
+        status: "active",
+        turnCount: 0,
+        messages: [{ role: "assistant", content: cleanText }],
+        suggestedReplies,
+        userName,
+      });
+    }
+  }
+
+  // Existing session — parse suggested replies from last assistant message
+  let suggestedReplies: string[] = [];
+  const lastAssistant = [...storedMessages].reverse().find((m) => m.role === "assistant");
+  if (lastAssistant) {
+    const parsed = parseSuggestedReplies(lastAssistant.content);
+    suggestedReplies = parsed.suggestedReplies;
+  }
 
   return NextResponse.json({
     id: interview.id,
     status: interview.status,
     turnCount: interview.turnCount,
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
-    userName: interview.user.name ?? interview.user.profile?.displayName ?? "",
+    messages: storedMessages.map((m) => ({
+      role: m.role,
+      content: m.role === "assistant" ? parseSuggestedReplies(m.content).cleanText : m.content,
+    })),
+    suggestedReplies,
+    userName,
   });
 }
 
@@ -140,14 +193,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "LLM service unavailable" }, { status: 503 });
   }
 
+  const isComplete = reply.includes(INTERVIEW_COMPLETE_MARKER) || newTurnCount >= MAX_INTERVIEW_TURNS + 1;
+  const rawContent = reply.replace(INTERVIEW_COMPLETE_MARKER, "").trim();
+  const { cleanText, suggestedReplies } = parseSuggestedReplies(rawContent);
+
   const now = new Date().toISOString();
   const userMsg: StoredMessage = { role: "user", content: message.trim(), ts: now };
-  // Strip the completion marker from user-visible text
-  const cleanReply = reply.replace(INTERVIEW_COMPLETE_MARKER, "").trim();
-  const assistantMsg: StoredMessage = { role: "assistant", content: cleanReply, ts: now };
+  const assistantMsg: StoredMessage = { role: "assistant", content: rawContent, ts: now };
 
   const updatedMessages = [...storedMessages, userMsg, assistantMsg];
-  const isComplete = reply.includes(INTERVIEW_COMPLETE_MARKER) || newTurnCount >= MAX_INTERVIEW_TURNS + 1;
   const newStatus = isComplete ? "completed" : "active";
 
   await db.interview.update({
@@ -159,7 +213,6 @@ export async function POST(request: NextRequest) {
     },
   });
 
-  // Auto-trigger extraction when interview completes
   if (isComplete) {
     extractInterviewProfile(interview.id).catch((err) => {
       console.error(`[Interview] Auto-extraction failed for ${interview.id}:`, err);
@@ -167,8 +220,9 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({
-    reply: cleanReply,
+    reply: cleanText,
     turnCount: newTurnCount,
     isComplete,
+    suggestedReplies: isComplete ? [] : suggestedReplies,
   });
 }

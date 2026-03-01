@@ -8,6 +8,21 @@ interface Message {
   content: string;
 }
 
+interface ChatResponse {
+  status?: string;
+  messages?: Message[];
+  userName?: string;
+  suggestedReplies?: string[];
+  error?: string;
+}
+
+interface SendResponse {
+  reply?: string;
+  isComplete?: boolean;
+  suggestedReplies?: string[];
+  error?: string;
+}
+
 function InterviewChat() {
   const params = useSearchParams();
   const token = params.get("token") ?? "";
@@ -17,6 +32,7 @@ function InterviewChat() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<"loading" | "active" | "completed" | "error">("loading");
   const [userName, setUserName] = useState("");
+  const [suggestedReplies, setSuggestedReplies] = useState<string[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
@@ -25,9 +41,8 @@ function InterviewChat() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, scrollToBottom]);
+  }, [messages, suggestedReplies, scrollToBottom]);
 
-  // Load session on mount
   useEffect(() => {
     if (!token) {
       setStatus("error");
@@ -36,52 +51,45 @@ function InterviewChat() {
 
     fetch(`/api/interview/chat?token=${token}`)
       .then((r) => r.json())
-      .then((data: { status?: string; messages?: Message[]; userName?: string; error?: string }) => {
+      .then((data: ChatResponse) => {
         if (data.error) {
           setStatus("error");
           return;
         }
         setMessages(data.messages ?? []);
         setUserName(data.userName ?? "");
+        setSuggestedReplies(data.suggestedReplies ?? []);
         if (data.status === "completed" || data.status === "extracted") {
           setStatus("completed");
         } else {
           setStatus("active");
-          // If no messages yet, auto-send greeting to trigger AI's opening
-          if (!data.messages || data.messages.length === 0) {
-            sendMessage("你好");
-          }
         }
       })
       .catch(() => setStatus("error"));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const sendMessage = async (text?: string) => {
     const msg = (text ?? input).trim();
     if (!msg || loading) return;
 
-    if (!text) setInput("");
-
-    // Only show user bubble if it's a real user message (not the auto-greeting)
-    const isAutoGreeting = !!text;
-    if (!isAutoGreeting) {
-      setMessages((prev) => [...prev, { role: "user", content: msg }]);
-    }
-
+    setInput("");
+    setSuggestedReplies([]);
+    setMessages((prev) => [...prev, { role: "user", content: msg }]);
     setLoading(true);
+
     try {
       const res = await fetch("/api/interview/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, message: msg }),
       });
-      const data = (await res.json()) as { reply?: string; isComplete?: boolean; error?: string };
+      const data = (await res.json()) as SendResponse;
 
       if (data.error) {
         setMessages((prev) => [...prev, { role: "assistant", content: `⚠️ ${data.error}` }]);
       } else if (data.reply) {
         setMessages((prev) => [...prev, { role: "assistant", content: data.reply! }]);
+        setSuggestedReplies(data.suggestedReplies ?? []);
         if (data.isComplete) setStatus("completed");
       }
     } catch {
@@ -163,11 +171,27 @@ function InterviewChat() {
         </div>
       </main>
 
-      {/* Input */}
+      {/* Quick replies + Input */}
       {status === "active" && (
-        <footer className="sticky bottom-0 border-t border-border/40 bg-white/90 px-4 py-3 backdrop-blur-sm">
+        <footer className="sticky bottom-0 border-t border-border/40 bg-white/90 backdrop-blur-sm">
+          {suggestedReplies.length > 0 && !loading && (
+            <div className="mx-auto max-w-2xl overflow-x-auto px-4 pt-3 pb-1">
+              <div className="flex gap-2">
+                {suggestedReplies.map((reply) => (
+                  <button
+                    key={reply}
+                    type="button"
+                    onClick={() => sendMessage(reply)}
+                    className="shrink-0 rounded-full border border-[#8b2252]/30 bg-[#8b2252]/5 px-4 py-2 text-sm text-[#8b2252] transition-all hover:border-[#8b2252]/60 hover:bg-[#8b2252]/10 active:scale-95"
+                  >
+                    {reply}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <form
-            className="mx-auto flex max-w-2xl gap-2"
+            className="mx-auto flex max-w-2xl gap-2 px-4 py-3"
             onSubmit={(e) => {
               e.preventDefault();
               sendMessage();
@@ -177,7 +201,7 @@ function InterviewChat() {
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="输入你的回答…"
+              placeholder="输入你的回答，或点击上方快捷选项…"
               disabled={loading}
               className="flex-1 rounded-full border border-border bg-[#fdf6f0] px-4 py-2.5 text-[15px] outline-none transition-colors placeholder:text-muted-foreground focus:border-[#8b2252]/50 focus:ring-1 focus:ring-[#8b2252]/20 disabled:opacity-50"
             />
