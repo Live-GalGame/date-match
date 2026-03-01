@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       },
     }),
     db.profile.findMany({
-      select: { userId: true, traits: true, dealBreakers: true },
+      select: { userId: true, traits: true, dealBreakers: true, gender: true, datingPreference: true },
     }),
   ]);
 
@@ -61,6 +61,8 @@ export async function POST(req: Request) {
     profileMap.set(p.userId, {
       traits: JSON.parse(p.traits) as string[],
       dealBreakers: JSON.parse(p.dealBreakers) as string[],
+      gender: p.gender ?? undefined,
+      datingPreference: p.datingPreference ?? undefined,
     });
   }
 

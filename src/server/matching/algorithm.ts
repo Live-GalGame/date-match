@@ -55,6 +55,8 @@ function parseSurvey(survey: SurveyResponse): ParsedSurvey {
 export interface ProfileData {
   traits: string[];
   dealBreakers: string[];
+  gender?: string;
+  datingPreference?: string;
 }
 
 // ─── Hard filters (config-driven + deal-breakers) ───
@@ -79,6 +81,19 @@ function shouldHardFilter(
     const ap = profiles.get(a.userId);
     const bp = profiles.get(b.userId);
     if (ap && bp) {
+      // Gender / dating preference filter: skip if either party's preference doesn't match the other's gender
+      // Only filter when both gender and preference are known (non-empty)
+      const aGender = ap.gender ?? "";
+      const aPref = ap.datingPreference ?? "";
+      const bGender = bp.gender ?? "";
+      const bPref = bp.datingPreference ?? "";
+
+      if (aGender && aPref && bGender && bPref) {
+        const aWantsB = aPref === bGender || aPref === "不愿意透露" || bGender === "不愿意透露";
+        const bWantsA = bPref === aGender || bPref === "不愿意透露" || aGender === "不愿意透露";
+        if (!aWantsB || !bWantsA) return true;
+      }
+
       for (const trait of bp.traits) {
         if (ap.dealBreakers.includes(trait)) return true;
       }
